@@ -1,0 +1,979 @@
+/* HYPEO BEATS · lógica del juego
+ * Bienvenida → estudio (arrastrar/soltar o clic+clic, mouse o mando VR) → resultado.
+ */
+(function () {
+  const THREE = AFRAME.THREE;
+  const { CATEGORIES: CATS, LAYOUT: L, MUSIC: M, COLORS: C, B } = HY;
+  const byId = Object.fromEntries(CATS.map(c => [c.id, c]));
+  const ease = { out: t => 1 - Math.pow(1 - t, 3), inOut: t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+    back: t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); } };
+
+  // ------------------------------------------------------------ tweens
+  const tweens = [];
+  function tween(dur, update, done, e = ease.out) {
+    const tw = { t: 0, dur, update, done, e, dead: false };
+    tweens.push(tw); return tw;
+  }
+  function stepTweens(dt) {
+    for (let i = tweens.length - 1; i >= 0; i--) {
+      const tw = tweens[i];
+      if (tw.dead) { tweens.splice(i, 1); continue; }
+      tw.t = Math.min(1, tw.t + dt / tw.dur);
+      tw.update(tw.e(tw.t));
+      if (tw.t >= 1) { tweens.splice(i, 1); tw.done && tw.done(); }
+    }
+  }
+
+  // ------------------------------------------------------------ fuentes locales
+  async function loadFonts() {
+    const faces = [['Poppins', 'assets/fonts/Poppins-800.woff2', '800'], ['Poppins', 'assets/fonts/Poppins-600.woff2', '600'],
+      ['Marker', 'assets/fonts/PermanentMarker.woff2', '400']];
+    await Promise.all(faces.map(async ([fam, url, w]) => {
+      try { const f = new FontFace(fam, `url(${url})`, { weight: w }); await f.load(); document.fonts.add(f); }
+      catch (e) { console.warn('[HYPEO] fuente no disponible', url, e); }
+    }));
+  }
+
+  function loadGLB(url) {
+    return new Promise((res, rej) => new THREE.GLTFLoader().load(url, res, undefined, rej));
+  }
+
+  AFRAME.registerComponent('hypeo-game', {
+    init() {
+      this.engine = new HY.MixEngine(CATS);
+      this.engine.prefetch();
+      this.S = { phase: 'loading', assigned: {}, busy: {}, held: null, userPaused: false, name: '' };
+      this.targets = [];
+      this.pointers = [];
+      this.levels = new Float32Array(28);
+      this.clock = 0;
+      this.ready = false;
+      const sc = this.el;
+      const start = () => this.setup().catch(e => { console.error(e); this.fatal(e); });
+      if (sc.hasLoaded) start(); else sc.addEventListener('loaded', start);
+    },
+
+    async setup() {
+      await loadFonts();
+      const sc = this.el, renderer = sc.renderer;
+      this.camEl = document.getElementById('camera');
+      this.rig = document.getElementById('rig');
+      sc.object3D.environment = B.makeEnvironment(renderer);
+      sc.object3D.background = new THREE.Color(C.bg);
+      sc.object3D.fog = new THREE.Fog(C.bg, 9, 18);
+
+      this.studio = new THREE.Group(); this.studio.name = 'studio';
+      this.welcome = new THREE.Group(); this.welcome.name = 'welcome';
+      this.result = new THREE.Group(); this.result.name = 'result';
+      sc.object3D.add(this.studio, this.welcome, this.result);
+      this.buildLights();
+      this.buildStudio();
+      this.buildWelcome();
+      this.buildResult();
+      this.buildFade();
+      this.setupPointers();
+      this.setupVRButton();
+      this.fitCamera();
+      window.addEventListener('resize', () => this.fitCamera());
+      sc.addEventListener('enter-vr', () => { this.cancelHeld(); document.body.classList.add('in-vr'); this.engine.unlock(); });
+      sc.addEventListener('exit-vr', () => { this.cancelHeld(); document.body.classList.remove('in-vr'); setTimeout(() => this.fitCamera(), 50); });
+      window.addEventListener('blur', () => this.cancelHeld());
+      document.addEventListener('visibilitychange', () => { if (document.hidden) this.cancelHeld(); });
+
+      // modelos 3D (exportados desde Blender)
+      const [chars, props, logo] = await Promise.all([
+        Promise.all(CATS.map(c => loadGLB(`assets/models/${c.id}.glb`).catch(e => ({ error: e })))),
+        loadGLB('assets/models/props.glb'),
+        loadGLB('assets/models/logo.glb')
+      ]);
+      this.mountLogo(logo);
+      this.mountProps(props);
+      chars.forEach((g, i) => this.mountCharacter(CATS[i], g));
+      this.setPhase('welcome');
+      this.ready = true;
+      document.body.classList.add('ready');
+      window.__hypeo = this;     // acceso para pruebas automatizadas
+    },
+
+    fatal(e) {
+      const el = document.getElementById('loading');
+      if (el) el.textContent = 'No se pudo iniciar HYPEO BEATS: ' + (e && e.message);
+    },
+
+    // ------------------------------------------------------------ cámara
+    fitCamera() {
+      const cam = this.camEl.getObject3D('camera'); if (!cam || this.el.is('vr-mode')) return;
+      const aspect = window.innerWidth / window.innerHeight;
+      const ref = 16 / 9, base = THREE.MathUtils.degToRad(L.baseVFov);
+      // mantiene el ancho visible de 16:9 en pantallas más angostas
+      let v = aspect >= ref ? base : 2 * Math.atan(Math.tan(base / 2) * ref / aspect);
+      v = Math.min(v, THREE.MathUtils.degToRad(100));
+      this.camEl.setAttribute('camera', 'fov', THREE.MathUtils.radToDeg(v));
+    },
+
+    // ------------------------------------------------------------ luces
+    buildLights() {
+      const sc = this.el.object3D;
+      this.lights = [];
+      const add = (l, k) => { l.userData.k = k; l.intensity = 0; sc.add(l); this.lights.push(l); return l; };
+      add(new THREE.AmbientLight('#3e2c5c'), 0.6);
+      add(new THREE.HemisphereLight('#8f78c8', '#140a1c'), 0.45);
+      const key = add(new THREE.DirectionalLight('#fff3ff'), 1.7); key.position.set(0.6, 4.2, 4.5); key.target.position.set(0, 1.8, -2); sc.add(key.target);
+      const fill = add(new THREE.DirectionalLight('#c8b6ff'), 0.5); fill.position.set(-4, 2.5, 2); fill.target.position.set(0, 1.5, -2); sc.add(fill.target);
+      const back = add(new THREE.PointLight('#9a4dff', 0, 9, 1.4), 26); back.position.set(0, 3.4, -3.8);
+      const backL = add(new THREE.PointLight('#c03dff', 0, 7, 1.6), 14); backL.position.set(-2.8, 2.6, -3.2);
+      const backR = add(new THREE.PointLight('#7a3dff', 0, 7, 1.6), 14); backR.position.set(2.8, 2.6, -3.2);
+      const desk = add(new THREE.PointLight('#ff4fb0', 0, 4, 1.6), 3.5); desk.position.set(0, 1.9, 1.3);
+      const logoL = add(new THREE.PointLight('#a64dff', 0, 6, 1.5), 12); logoL.position.set(0, 4.3, -3.2);
+      this.lightLevel = 0;
+    },
+    setLightLevel(k) {
+      this.lightLevel = k;
+      for (const l of this.lights) l.intensity = l.userData.k * k;
+    },
+
+    // ------------------------------------------------------------ estudio
+    buildStudio() {
+      const root = this.studio;
+      B.buildRoom(root);
+      B.buildStage(root);
+      B.buildConsole(root);
+      const cam = { x: L.rig.x, z: L.rig.z };
+      this.chars = {}; this.bases = {};
+      CATS.forEach((cat, i) => {
+        const p = L.characters[i];
+        const yaw = Math.atan2(cam.x - p.x, cam.z - p.z);
+        const ped = B.buildPedestal(cat, p, yaw);
+        root.add(ped.group);
+        this.chars[cat.id] = Object.assign(ped, { cat, yaw, hover: 0, flash: 0, pop: 0, model: null, mixer: null });
+        this.addTarget('char', cat.id, [ped.hit]);
+        // base del instrumento en la consola
+        const a = THREE.MathUtils.degToRad(L.propAngles[i]);
+        const bx = L.consoleCenter.x + Math.sin(a) * L.propRadius, bz = L.consoleCenter.z - Math.cos(a) * L.propRadius;
+        const base = B.buildPropBase(cat);
+        base.group.position.set(bx, L.consoleTop, bz);
+        root.add(base.group);
+        this.bases[cat.id] = Object.assign(base, { cat, home: new THREE.Vector3(bx, L.consoleTop + 0.11, bz), prop: null,
+          state: 'home', hover: 0, phase: i * 1.3 });
+        this.addTarget('base', cat.id, [base.hit]);
+      });
+      // logo + subtítulo
+      this.logoGroup = new THREE.Group(); this.logoGroup.position.set(0, 4.42, -4.3); root.add(this.logoGroup);
+      const sub = B.textPlane(2.6, 0.22, 1024, (ctx, w, h) => {
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = B.font(600, 62); if ('letterSpacing' in ctx) ctx.letterSpacing = '8px';
+        ctx.fillStyle = '#8f7fb0'; ctx.fillText('CREATE YOUR SOUND', w / 2, h / 2 + 4);
+      });
+      sub.position.set(0, 3.42, -4.25); root.add(sub);
+      // pantallas laterales
+      const sw = 1.56, sh = 0.98;
+      this.leftScreen = B.buildScreen(sw, sh); this.leftScreen.position.set(-2.86, 2.36, -0.75); this.leftScreen.rotation.set(0, 0.36, 0.0);
+      this.rightScreen = B.buildScreen(sw, sh); this.rightScreen.position.set(2.86, 2.36, -0.75); this.rightScreen.rotation.set(0, -0.36, 0.0);
+      root.add(this.leftScreen, this.rightScreen);
+      this.status = { text: '', color: '#ffd1f0', until: 0 };
+      this.leftText = B.textPlane(sw - 0.12, sh - 0.12, 1024, (ctx, w, h, main, st) => {
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.font = B.font(600, 66);
+        const lines = B.wrap(ctx, main || 'Arrastrá los sonidos hacia los personajes para crear tu mix', w * 0.84);
+        lines.forEach((ln, k) => B.glowText(ctx, ln, w * 0.08, h * 0.26 + k * 84, B.font(600, 66), '#efe6ff', '#b46bff', 10));
+        // destello de cuatro puntas
+        const sx = w * 0.86, sy = h * 0.72, r = 38;
+        ctx.save(); ctx.strokeStyle = '#a66bff'; ctx.lineWidth = 5; ctx.shadowColor = '#a64dff'; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.moveTo(sx, sy - r); ctx.quadraticCurveTo(sx, sy, sx + r * 0.7, sy); ctx.quadraticCurveTo(sx, sy, sx, sy + r);
+        ctx.quadraticCurveTo(sx, sy, sx - r * 0.7, sy); ctx.quadraticCurveTo(sx, sy, sx, sy - r); ctx.stroke(); ctx.restore();
+        if (st && st.text) {
+          ctx.font = B.font(600, 46);
+          const sl = B.wrap(ctx, st.text, w * 0.72);
+          sl.forEach((ln, k) => B.glowText(ctx, ln, w * 0.08, h * 0.74 + k * 56, B.font(600, 46), st.color, st.color, 8));
+        }
+      });
+      this.leftText.position.z = 0.05; this.leftScreen.add(this.leftText);
+      this.rightText = B.textPlane(sw - 0.12, sh - 0.12, 1024, (ctx, w, h, list, state) => {
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        B.glowText(ctx, 'Tu mezcla:', w * 0.08, h * 0.24, B.font(600, 72), '#d9c8ff', '#a64dff', 10);
+        ctx.font = B.font(600, 38);
+        ctx.fillStyle = '#9d8cc4';
+        ctx.textAlign = 'right';
+        ctx.fillText(state || 'vacía', w * 0.92, h * 0.24);
+        ctx.textAlign = 'left';
+        if (list && list.length) {
+          let x = w * 0.08;
+          for (const c of list) {
+            ctx.font = B.font(800, 34); const tw = ctx.measureText(c.label).width + 34;
+            ctx.fillStyle = c.color + '44'; ctx.strokeStyle = c.color; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, h * 0.83, tw, 52, 26) : ctx.rect(x, h * 0.83, tw, 52); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#ffffff'; ctx.fillText(c.label, x + 17, h * 0.83 + 38); x += tw + 14;
+          }
+        }
+      });
+      this.rightText.position.z = 0.05; this.rightScreen.add(this.rightText);
+      // visualizador de barras moradas (malla 3D frente a la pantalla derecha)
+      this.bars = [];
+      const n = this.levels.length, bw = 0.028, span = sw * 0.78;
+      const barMat = B.neon('#a24dff', 1.2), barHalo = B.halo('#a24dff', 0.25);
+      for (let i = 0; i < n; i++) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(bw, 1, 0.01), barMat);
+        const halo = new THREE.Mesh(new THREE.BoxGeometry(bw * 2.2, 1, 0.004), barHalo); halo.position.z = -0.006;
+        const g = new THREE.Group(); g.add(bar, halo);
+        g.position.set(-span / 2 + (i + 0.5) * span / n, 0.02, 0.06);
+        g.scale.y = this.restBar(i);
+        this.rightScreen.add(g); this.bars.push(g);
+      }
+      // parlantes, parcialmente recortados a los lados
+      for (const s of [-1, 1]) {
+        const sp = B.buildSpeaker(); sp.position.set(3.45 * s, 0, -0.1); sp.rotation.y = -0.62 * s; root.add(sp);
+        (this.speakers = this.speakers || []).push(sp);
+      }
+      this.buildButtons();
+      this.redrawPanels();
+    },
+
+    restBar(i) {
+      // forma de onda en reposo (como la referencia), baja y quieta
+      const n = this.levels.length, x = (i + 0.5) / n;
+      return 0.04 + 0.22 * Math.pow(Math.sin(Math.PI * x), 2) * (0.55 + 0.45 * Math.abs(Math.sin(i * 1.7)));
+    },
+
+    buildButtons() {
+      const top = L.consoleTop, z = 1.9;
+      const mk = (id, w, h, opts, pos) => {
+        const b = B.buildButton(w, h, opts);
+        b.position.set(pos[0], top + 0.09, pos[1]); b.rotation.x = -0.9; b.scale.setScalar(0.78);
+        this.studio.add(b);
+        this.addTarget('button', id, [b.userData.body]);
+        b.userData.id = id; b.userData.hover = 0; b.userData.base = 0.78;
+        return b;
+      };
+      this.btnReset = mk('reset', 0.46, 0.15, { fill: '#17111f', rim: '#9b52ff', text: 'RESET', icon: 'reset', textColor: '#e6dcff' }, [-0.36, z + 0.02]);
+      this.btnPlay = mk('play', 0.52, 0.17, { fill: '#8a2cff', emissive: '#7a22ff', emissiveIntensity: 0.9, rim: '#cf9dff', text: 'PLAY', icon: 'play', textColor: '#ffffff', textGlow: '#ffffff' }, [0.16, z]);
+      this.btnFinish = mk('finish', 0.56, 0.15, { fill: '#2a0f2e', emissive: '#ff3fb4', emissiveIntensity: 0.35, rim: '#ff6fc8', text: 'FINISH MIX', icon: 'flag', textColor: '#ffe3f4', textGlow: '#ff6fc8' }, [0.72, z - 0.1]);
+      this.btnFinish.rotation.y = -0.28;
+      this.btnFinish.visible = false; this.btnFinish.scale.setScalar(0.001); this.btnFinish.userData.base = 0.78;
+    },
+
+    redrawPanels() {
+      const st = this.status && this.clock < this.status.until ? this.status : null;
+      const main = this.S.phase === 'result' ? 'Tu beat quedó listo. Escuchalo, volvé al estudio o empezá de cero.' : null;
+      this.leftText.userData.canvas.redraw(main, st);
+      const list = CATS.filter(c => this.S.assigned[c.id]);
+      const state = !list.length ? 'vacía' : this.engine.playing ? 'sonando' : 'en pausa';
+      this.rightText.userData.canvas.redraw(list, state);
+      this.btnPlay.userData.label.userData.canvas.redraw(this.engine.playing ? 'PAUSE' : 'PLAY', this.engine.playing ? 'pause' : 'play');
+      if (this.resPlay) this.resPlay.userData.label.userData.canvas.redraw(this.engine.playing ? 'PAUSE' : 'PLAY', this.engine.playing ? 'pause' : 'play');
+    },
+
+    say(text, color = '#ffc4ec', ms = 3800) {
+      this.status = { text, color, until: this.clock + ms / 1000 };
+      this.redrawPanels();
+      clearTimeout(this._sayT);
+      this._sayT = setTimeout(() => this.redrawPanels(), ms + 50);
+    },
+
+    // ------------------------------------------------------------ modelos
+    mountLogo(gltf) {
+      const make = () => {
+        const g = gltf.scene.clone(true);
+        g.traverse(o => {
+          if (o.isMesh) {
+            const m = o.material.clone();
+            m.emissiveMap = m.map; m.emissive = new THREE.Color('#ffffff'); m.emissiveIntensity = 0.85; m.toneMapped = false;
+            o.material = m;
+          }
+        });
+        const hy = g.getObjectByName('logo_hypeo');
+        const box = new THREE.Box3().setFromObject(hy), size = box.getSize(new THREE.Vector3());
+        const s = 3.15 / size.x;
+        g.scale.setScalar(s);
+        const c = box.getCenter(new THREE.Vector3());
+        g.position.set(-c.x * s, -c.y * s, -c.z * s);
+        const wrap = new THREE.Group(); wrap.add(g);
+        // halo violeta detrás del logo
+        const glow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.6), new THREE.MeshBasicMaterial({
+          map: B.radialTex('rgba(166,77,255,0.45)', 'rgba(166,77,255,0)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+        glow.position.set(0, -0.25, -0.2); wrap.add(glow);
+        return wrap;
+      };
+      this.logoGroup.add(make());
+      this.welcomeLogo.add(make());
+    },
+
+    mountProps(gltf) {
+      for (const cat of CATS) {
+        const src = gltf.scene.getObjectByName(cat.prop);
+        const g = new THREE.Group();
+        const m = src.clone(true); m.position.set(0, 0, 0);
+        m.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.emissiveMap = o.material.map; o.material.emissive = new THREE.Color('#000000'); } });
+        const box = new THREE.Box3().setFromObject(m), c = box.getCenter(new THREE.Vector3());
+        m.position.set(-c.x, -box.min.y, -c.z);
+        g.add(m);
+        g.scale.setScalar(L.propScale);
+        g.userData.mats = []; g.traverse(o => o.isMesh && g.userData.mats.push(o.material));
+        const hit = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 8), new THREE.MeshBasicMaterial({ visible: false }));
+        hit.position.y = 0.14; g.add(hit);
+        const base = this.bases[cat.id];
+        g.position.copy(base.home);
+        this.studio.add(g);
+        base.prop = g; base.propHit = hit;
+        this.addTarget('prop', cat.id, [hit]);
+      }
+    },
+
+    mountCharacter(cat, gltf) {
+      const ch = this.chars[cat.id];
+      if (!gltf || gltf.error) { console.warn('[HYPEO] modelo faltante', cat.id, gltf && gltf.error); return; }
+      const model = gltf.scene;
+      model.traverse(o => {
+        if (o.isMesh) {
+          o.frustumCulled = false;
+          const m = o.material;
+          m.emissiveMap = m.map; m.emissive = new THREE.Color('#3a3346'); m.envMapIntensity = 0.55;
+          if (m.roughness < 0.3) m.envMapIntensity = 1.2;
+        }
+      });
+      const holder = new THREE.Group();
+      holder.position.set(0, ch.top - L.characterSink, 0);
+      holder.scale.setScalar(L.characterScale);
+      holder.add(model);
+      ch.group.add(holder);
+      ch.holder = holder; ch.model = model;
+      const mixer = new THREE.AnimationMixer(model);
+      const clip = n => gltf.animations.find(a => a.name === n);
+      const idle = mixer.clipAction(clip('Idle')), dance = mixer.clipAction(clip('Dance'));
+      for (const a of [idle, dance]) { a.play(); a.paused = true; }
+      idle.setEffectiveWeight(1); dance.setEffectiveWeight(0);
+      ch.mixer = mixer; ch.idle = idle; ch.dance = dance; ch.danceW = 0;
+      mixer.update(0);
+    },
+
+    // ------------------------------------------------------------ bienvenida
+    buildWelcome() {
+      const g = this.welcome; g.position.set(0, 0, 0);
+      const z = 0.2;
+      for (const [r, col, k, y] of [[2.6, C.neon, 1.3, 1.95], [3.1, C.magenta, 1.0, 1.95], [3.6, C.neonSoft, 0.8, 1.95]]) {
+        const ring = B.neonTorus(r, 0.02, col, Math.PI * 2, k, 3.2, 0.14);
+        ring.position.set(0, y, z - 1.6 - r * 0.2); g.add(ring);
+        (g.userData.rings = g.userData.rings || []).push(ring);
+      }
+      const floorRing = B.neonTorus(2.2, 0.02, C.neon, Math.PI * 2, 1.1, 3, 0.14);
+      floorRing.rotation.x = Math.PI / 2; floorRing.position.set(0, 0.02, z - 1.5); g.add(floorRing);
+      const floor = new THREE.Mesh(new THREE.CircleGeometry(14, 64), B.mat('#0a0610', { roughness: 0.3, metalness: 0.3 }));
+      floor.rotation.x = -Math.PI / 2; g.add(floor);
+      // partículas de luz
+      const pts = new THREE.BufferGeometry(), N = 260, arr = new Float32Array(N * 3);
+      for (let i = 0; i < N; i++) { arr[i * 3] = (Math.random() - 0.5) * 14; arr[i * 3 + 1] = Math.random() * 6; arr[i * 3 + 2] = -6 + Math.random() * 6; }
+      pts.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+      const dots = new THREE.Points(pts, new THREE.PointsMaterial({ color: '#b07bff', size: 0.03, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+      g.add(dots); g.userData.dots = dots;
+      const title = B.textPlane(3.2, 0.32, 1024, (ctx, w, h) => {
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        if ('letterSpacing' in ctx) ctx.letterSpacing = '10px';
+        B.glowText(ctx, 'BIENVENIDO A', w / 2, h / 2 + 4, B.font(800, 92), '#f1e8ff', '#a64dff', 22);
+      });
+      title.position.set(0, 2.78, z - 1.2); g.add(title);
+      this.welcomeLogo = new THREE.Group(); this.welcomeLogo.position.set(0, 2.05, z - 1.25); this.welcomeLogo.scale.setScalar(0.62);
+      g.add(this.welcomeLogo);
+      const sub = B.textPlane(3.0, 0.24, 1600, (ctx, w, h) => {
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        B.glowText(ctx, 'Es momento de crear tu propio sonido', w / 2, h / 2, B.font(600, 70), '#ddd0f7', '#7b3fe0', 12);
+      });
+      sub.position.set(0, 1.42, z - 1.2); g.add(sub);
+      this.btnStart = B.buildButton(0.62, 0.2, { fill: '#8a2cff', emissive: '#7a22ff', emissiveIntensity: 0.9, rim: '#d7a8ff', text: 'PLAY', icon: 'play', textColor: '#ffffff', textGlow: '#ffffff' });
+      this.btnStart.position.set(0, 1.08, z - 1.0); this.btnStart.rotation.x = -0.25;
+      this.btnStart.userData.hover = 0; this.btnStart.userData.id = 'start';
+      g.add(this.btnStart);
+      this.addTarget('button', 'start', [this.btnStart.userData.body]);
+    },
+
+    // ------------------------------------------------------------ resultado
+    buildResult() {
+      const g = this.result; g.position.set(0, 1.34, 1.2); g.rotation.x = -0.12;
+      const w = 2.1, h = 0.78;
+      const panel = new THREE.Mesh(B.roundedBox(w, h, 0.06, 0.14, 0.02), B.mat('#120b1a', { roughness: 0.3, metalness: 0.3, transparent: true, opacity: 0.96 }));
+      g.add(panel);
+      const fr = B.neonFrame(w - 0.05, h - 0.05, 0.12, 0.01, C.neon, 1.4); fr.position.z = 0.035; g.add(fr);
+      this.resText = B.textPlane(w - 0.1, 0.5, 1024, (ctx, cw, ch, name) => {
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        B.glowText(ctx, 'YOU JUST CREATED YOUR HYPEO BEAT!', cw / 2, ch * 0.22, B.font(800, 50), '#ffffff', '#c06bff', 20);
+        ctx.font = B.font(600, 30); ctx.fillStyle = '#a596c8'; ctx.fillText('Nombre de tu composición', cw / 2, ch * 0.48);
+        B.glowText(ctx, '“' + (name || '') + '”', cw / 2, ch * 0.74, B.font(400, 74, 'Marker'), '#ffb8ea', '#ff3fb4', 18);
+      });
+      this.resText.position.set(0, 0.12, 0.04); g.add(this.resText);
+      const mk = (id, bw, opts, x) => {
+        const b = B.buildButton(bw, 0.13, opts); b.position.set(x, -0.25, 0.05);
+        b.userData.id = id; b.userData.hover = 0; g.add(b); this.addTarget('button', id, [b.userData.body]); return b;
+      };
+      this.resPlay = mk('res-play', 0.42, { fill: '#8a2cff', emissive: '#7a22ff', emissiveIntensity: 0.9, rim: '#d7a8ff', text: 'PAUSE', icon: 'pause', textColor: '#fff', textGlow: '#fff' }, -0.6);
+      this.resBack = mk('res-back', 0.62, { fill: '#17111f', rim: '#9b52ff', text: 'VOLVER AL ESTUDIO', icon: 'back', textColor: '#e6dcff' }, 0.0);
+      this.resNew = mk('res-new', 0.52, { fill: '#2a0f2e', emissive: '#ff3fb4', emissiveIntensity: 0.3, rim: '#ff6fc8', text: 'NUEVA MEZCLA', icon: 'plus', textColor: '#ffe3f4' }, 0.64);
+      g.visible = false;
+    },
+
+    buildFade() {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12), new THREE.MeshBasicMaterial({ color: '#000000', side: THREE.BackSide, transparent: true, opacity: 1, depthTest: false, depthWrite: false }));
+      m.renderOrder = 999; this.fade = m;
+      this.camEl.object3D.add(m);
+    },
+    fadeTo(op, dur) {
+      return new Promise(res => {
+        const from = this.fade.material.opacity;
+        this.fade.visible = true;
+        tween(dur, k => { this.fade.material.opacity = from + (op - from) * k; }, () => { if (op === 0) this.fade.visible = false; res(); }, ease.inOut);
+      });
+    },
+
+    setPhase(p) {
+      this.S.phase = p;
+      this.welcome.visible = p === 'welcome';
+      this.studio.visible = p === 'studio' || p === 'result';
+      this.result.visible = p === 'result';
+      const studioUI = p === 'studio';
+      for (const id in this.bases) {
+        const b = this.bases[id];
+        b.group.visible = studioUI || p === 'result';
+        if (b.prop) b.prop.visible = studioUI && b.state !== 'assigned';
+      }
+      for (const b of [this.btnReset, this.btnPlay]) b.visible = studioUI;
+      this.btnFinish.visible = studioUI && this.engine.activeCount() > 0;
+      if (p === 'welcome') { document.getElementById('loading')?.remove(); this.fadeTo(0, 0.8); this.setLightLevel(0.55); }
+      this.redrawPanels();
+    },
+
+    async startStudio() {
+      if (this._starting) return; this._starting = true;
+      // desbloquea el audio dentro del gesto del usuario
+      const unlocking = this.engine.unlock();
+      await this.fadeTo(1, 0.35);
+      await unlocking;
+      this.setPhase('studio');
+      this.setLightLevel(0);
+      const load = this.engine.load();
+      await this.fadeTo(0, 0.25);
+      tween(1.1, k => this.setLightLevel(k), null, ease.inOut);
+      const r = await load;
+      if (r.failed.length) {
+        const names = r.failed.map(id => byId[id].label).join(', ');
+        this.say(`No se pudo cargar ${names}. Podés seguir con las otras pistas.`, '#ff9aa8', 7000);
+        for (const id of r.failed) this.setPropDisabled(id);
+      }
+      this._starting = false;
+    },
+
+    setPropDisabled(id) {
+      const b = this.bases[id];
+      if (!b.prop) return;
+      for (const m of b.prop.userData.mats) { m.transparent = true; m.opacity = 0.3; }
+      b.ring.userData.core.material.color.set('#3a3346');
+    },
+
+    // ------------------------------------------------------------ objetivos y punteros
+    addTarget(kind, id, meshes) {
+      const t = { kind, id, meshes };
+      for (const m of meshes) m.userData.target = t;
+      this.targets.push(t);
+      return t;
+    },
+    targetEnabled(t) {
+      const S = this.S, p = S.phase;
+      if (t.kind === 'button') {
+        if (t.id === 'start') return p === 'welcome';
+        if (t.id.startsWith('res-')) return p === 'result';
+        if (t.id === 'finish') return p === 'studio' && this.btnFinish.visible && this.btnFinish.scale.x > 0.4;
+        return p === 'studio';
+      }
+      if (p !== 'studio') return false;
+      if (t.kind === 'prop') return this.bases[t.id].state === 'home' && this.bases[t.id].prop.visible && !(S.held && S.held.id === t.id);
+      if (t.kind === 'char') return true;
+      if (t.kind === 'base') return !!S.assigned[t.id];
+      return false;
+    },
+
+    setupPointers() {
+      const sc = this.el, canvas = sc.canvas;
+      const mouse = { id: 'mouse', ray: new THREE.Ray(), active: false, down: false, ndc: new THREE.Vector2(), px: 0, py: 0, hover: null, isMouse: true };
+      this.mouse = mouse; this.pointers.push(mouse);
+      const rc = new THREE.Raycaster();
+      const updateRay = e => {
+        const r = canvas.getBoundingClientRect();
+        mouse.px = e.clientX; mouse.py = e.clientY;
+        mouse.ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+        const cam = sc.camera; cam.updateMatrixWorld();
+        rc.setFromCamera(mouse.ndc, cam); mouse.ray.copy(rc.ray); mouse.active = true;
+      };
+      this._mouseRay = updateRay;
+      canvas.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || mouse.down) updateRay(e); });
+      canvas.addEventListener('pointerdown', e => {
+        if (e.button !== undefined && e.button !== 0) return;
+        updateRay(e); this.updateHover(mouse);
+        try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+        mouse.down = true; mouse.downX = e.clientX; mouse.downY = e.clientY; mouse.downT = this.clock;
+        this.press(mouse);
+      });
+      const up = e => {
+        if (!mouse.down) return;
+        updateRay(e); this.updateHover(mouse); mouse.down = false;
+        this.release(mouse);
+        if (e.pointerType !== 'mouse') mouse.active = false;
+      };
+      canvas.addEventListener('pointerup', up);
+      canvas.addEventListener('pointercancel', () => { mouse.down = false; this.cancelHeld(); });
+      canvas.addEventListener('pointerleave', e => { if (!mouse.down && e.pointerType === 'mouse') { mouse.active = false; mouse.hover = null; } });
+
+      // mandos VR (laser-controls) con mano translúcida y rayo propio
+      for (const hand of ['left', 'right']) {
+        const el = document.getElementById('hand-' + hand);
+        const p = { id: hand, el, ray: new THREE.Ray(), active: false, down: false, hover: null, isMouse: false, buttons: 0 };
+        el.object3D.add(B.buildHand(hand));
+        const laser = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 1, 6, 1, true), B.halo('#cdb6ff', 0.75));
+        laser.geometry.translate(0, 0.5, 0); laser.geometry.rotateX(-Math.PI / 2);
+        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.012, 10, 8), B.halo('#ffffff', 0.9));
+        sc.object3D.add(laser, dot); laser.visible = dot.visible = false;
+        p.laser = laser; p.dot = dot;
+        el.addEventListener('controllerconnected', () => {
+          p.active = true;
+          setTimeout(() => el.setAttribute('raycaster', { showLine: false, enabled: true, objects: '.hy-none' }), 0);
+        });
+        el.addEventListener('controllerdisconnected', () => { p.active = false; laser.visible = dot.visible = false; if (this.S.held && this.S.held.pointer === p) this.cancelHeld(); });
+        const down = () => { p.buttons++; if (p.buttons === 1) { p.down = true; p.downT = this.clock; p.downDir = p.ray.direction.clone(); this.updateHover(p); this.press(p); } };
+        const upv = () => { p.buttons = Math.max(0, p.buttons - 1); if (p.buttons === 0 && p.down) { p.down = false; this.updateHover(p); this.release(p); } };
+        el.addEventListener('triggerdown', down); el.addEventListener('triggerup', upv);
+        el.addEventListener('gripdown', down); el.addEventListener('gripup', upv);
+        this.pointers.push(p);
+      }
+    },
+
+    updateControllerRay(p) {
+      const rcc = p.el.components.raycaster;
+      if (rcc && rcc.updateOriginDirection) {
+        rcc.updateOriginDirection();
+        p.ray.copy(rcc.raycaster.ray);
+      } else {
+        const o = p.el.object3D; o.updateMatrixWorld();
+        p.ray.origin.setFromMatrixPosition(o.matrixWorld);
+        p.ray.direction.set(0, 0, -1).transformDirection(o.matrixWorld);
+      }
+    },
+
+    updateHover(p) {
+      const rc = this._rc || (this._rc = new THREE.Raycaster());
+      rc.ray.copy(p.ray); rc.far = 20;
+      const meshes = [];
+      for (const t of this.targets) if (this.targetEnabled(t)) for (const m of t.meshes) if (this.isShown(m)) meshes.push(m);
+      const hits = rc.intersectObjects(meshes, false);
+      // prioridad: botones e instrumentos sobre los personajes (que tienen zonas grandes)
+      let best = null;
+      for (const h of hits) {
+        const t = h.object.userData.target;
+        const pr = t.kind === 'button' ? 0 : t.kind === 'prop' ? 1 : t.kind === 'base' ? 2 : 3;
+        if (!best || pr < best.pr || (pr === best.pr && h.distance < best.d)) best = { t, pr, d: h.distance, point: h.point };
+      }
+      p.hover = best ? best.t : null; p.hoverPoint = best ? best.point : null; p.hoverDist = best ? best.d : null;
+      return p.hover;
+    },
+    isShown(o) { while (o) { if (!o.visible) return false; o = o.parent; } return true; },
+
+    // ------------------------------------------------------------ acciones
+    press(p) {
+      const S = this.S, t = p.hover;
+      if (!this.ready) return;
+      if (S.held) {
+        if (S.held.mode === 'select') {
+          // segundo clic: destino
+          if (t && t.kind === 'char') return this.drop(t.id);
+          if (t && t.kind === 'button') { this.cancelHeld(); return this.button(t.id); }
+          if (t && t.kind === 'prop' && t.id !== S.held.id) { this.cancelHeld(); return this.grab(t.id, p); }
+          return this.cancelHeld(true);
+        }
+        return;
+      }
+      if (!t) return;
+      if (t.kind === 'button') return this.button(t.id, p);
+      if (t.kind === 'prop') return this.grab(t.id, p);
+      if ((t.kind === 'char' || t.kind === 'base') && S.assigned[t.id]) return this.unassign(t.id);
+      if (t.kind === 'char') this.say(`Agarrá ${byId[t.id].propName} de la consola y soltalo sobre ${byId[t.id].label}.`, '#d7c4ff');
+    },
+
+    release(p) {
+      const S = this.S, h = S.held;
+      if (!h || h.pointer !== p || h.mode === 'select') return;
+      const moved = p.isMouse
+        ? Math.hypot(p.px - p.downX, p.py - p.downY) > 8
+        : (p.downDir && p.downDir.angleTo(p.ray.direction) > THREE.MathUtils.degToRad(4)) || this.clock - p.downT > 0.45;
+      if (!moved && !h.dragged) {
+        // clic simple: queda seleccionado esperando el clic en el personaje
+        h.mode = 'select';
+        this.say(`Ahora tocá a ${byId[h.id].label} para sumar ${byId[h.id].propName}.`, '#d7c4ff', 5000);
+        return;
+      }
+      let target = p.hover && p.hover.kind === 'char' ? p.hover.id : null;
+      if (!target) target = this.nearestChar(h.obj.position, 0.75);
+      if (target) this.drop(target); else this.cancelHeld(true);
+    },
+
+    nearestChar(pos, maxD) {
+      let best = null, bd = maxD;
+      for (const id in this.chars) {
+        const c = this.chars[id]; const w = new THREE.Vector3(); c.group.getWorldPosition(w); w.y += 0.9;
+        const d = w.distanceTo(pos); if (d < bd) { bd = d; best = id; }
+      }
+      return best;
+    },
+
+    grab(id, p) {
+      const S = this.S, b = this.bases[id];
+      if (S.busy[id] || b.state !== 'home') return;
+      if (!this.engine.isLoaded(id) && this.engine.ctx && this.engine.failed[id]) {
+        return this.say(`La pista ${byId[id].label} no cargó. Probá con otro instrumento.`, '#ff9aa8');
+      }
+      b.state = 'held';
+      const obj = b.prop;
+      const camPos = new THREE.Vector3(); this.el.camera.getWorldPosition(camPos);
+      S.held = { id, pointer: p, obj, mode: 'drag', dragged: false, dist: p.hoverDist || obj.position.distanceTo(camPos), start: obj.position.clone() };
+      // plano de arrastre perpendicular a la vista, a la profundidad del objeto
+      const n = new THREE.Vector3(); this.el.camera.getWorldDirection(n);
+      S.held.plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n.negate(), obj.position);
+      this.updateCursor();
+    },
+
+    /** Devuelve el objeto sostenido a su base (soltado en el vacío, cancelado o perdido el foco). */
+    cancelHeld(feedback = false) {
+      const S = this.S, h = S.held; if (!h) return;
+      S.held = null;
+      const b = this.bases[h.id];
+      this.flyHome(h.id, h.obj.position.clone());
+      if (feedback && h.mode !== 'select') this.say('Soltalo sobre su personaje. Volvió a su lugar.', '#d7c4ff', 2600);
+      this.updateCursor();
+      return b;
+    },
+
+    flyHome(id, from) {
+      const S = this.S, b = this.bases[id], obj = b.prop;
+      S.busy[id] = true; b.state = 'returning';
+      obj.visible = this.S.phase === 'studio';
+      const to = b.home.clone(), s0 = obj.scale.x;
+      tween(0.42, k => {
+        obj.position.lerpVectors(from, to, k); obj.position.y += Math.sin(Math.PI * k) * 0.12;
+        obj.scale.setScalar(s0 + (L.propScale - s0) * k);
+      }, () => { b.state = 'home'; S.busy[id] = false; obj.scale.setScalar(L.propScale); }, ease.out);
+    },
+
+    drop(charId) {
+      const S = this.S, h = S.held; if (!h) return;
+      const id = h.id;
+      if (charId !== id) {
+        const ch = this.chars[charId]; ch.flash = 1;
+        S.held = null; this.flyHome(id, h.obj.position.clone()); this.updateCursor();
+        return this.say(`${byId[charId].label} no usa ${byId[id].propName}. Ese sonido va con ${byId[id].label}.`, '#ffb0c0');
+      }
+      if (this.engine.failed[id]) {
+        S.held = null; this.flyHome(id, h.obj.position.clone()); this.updateCursor();
+        return this.say(`La pista ${byId[id].label} no cargó.`, '#ff9aa8');
+      }
+      S.held = null; this.updateCursor();
+      this.assign(id, h.obj.position.clone());
+    },
+
+    assign(id, from) {
+      const S = this.S, b = this.bases[id], ch = this.chars[id], obj = b.prop;
+      if (S.assigned[id] || S.busy[id]) return;
+      S.busy[id] = true; S.assigned[id] = true; b.state = 'assigned';
+      const wasEmpty = this.engine.activeCount() === 0;
+      this.engine.setTrack(id, true);
+      if (wasEmpty && !S.userPaused && !this.engine.playing) this.engine.play();
+      const to = new THREE.Vector3(); ch.group.getWorldPosition(to); to.y = ch.top + L.stageTop + 0.5;
+      const s0 = obj.scale.x;
+      tween(0.45, k => { obj.position.lerpVectors(from, to, k); obj.position.y += Math.sin(Math.PI * k) * 0.35; obj.scale.setScalar(s0 * (1 - k * 0.92)); },
+        () => { obj.visible = false; S.busy[id] = false; ch.pop = 1; }, ease.inOut);
+      b.check.visible = true;
+      this.setCharActive(id, true);
+      this.updateFinish();
+      this.redrawPanels();
+      const n = this.engine.activeCount();
+      if (!this.engine.playing) this.say(`${byId[id].label} quedó en tu mezcla. Tocá PLAY para escucharla.`, '#c9f7c0');
+      else this.say(n === 5 ? '¡Las cinco pistas suenan juntas! Tocá FINISH MIX cuando quieras.' : `${byId[id].label} entra en el próximo tiempo.`, '#c9f7c0', 2600);
+    },
+
+    unassign(id) {
+      const S = this.S, b = this.bases[id], ch = this.chars[id];
+      if (!S.assigned[id] || S.busy[id]) return;
+      S.assigned[id] = false;
+      this.engine.setTrack(id, false);
+      if (this.engine.activeCount() === 0 && this.engine.playing) { this.engine.pause(); this.engine.pausedAt = 0; }
+      b.check.visible = false;
+      this.setCharActive(id, false);
+      const from = new THREE.Vector3(); ch.group.getWorldPosition(from); from.y = ch.top + L.stageTop + 0.5;
+      b.prop.scale.setScalar(0.1); b.prop.position.copy(from);
+      this.flyHome(id, from);
+      this.updateFinish();
+      this.redrawPanels();
+      this.say(`Quitaste ${byId[id].label}. ${byId[id].propName[0].toUpperCase() + byId[id].propName.slice(1)} volvió a la consola.`, '#d7c4ff', 2600);
+    },
+
+    setCharActive(id, on) {
+      const ch = this.chars[id], cat = ch.cat;
+      const col = on ? cat.color : C.coral;
+      ch.ring.userData.core.material.color.set(col).multiplyScalar(on ? 1.6 : 1.15);
+      ch.ring.userData.halo.material.color.set(col);
+      ch.ring.userData.halo.material.opacity = on ? 0.42 : 0.16;
+      ch.plateGlow.visible = on;
+      ch.label.userData.canvas.redraw(on);
+      const bc = this.bases[id].ring;
+      bc.userData.core.material.color.set(on ? cat.color : C.blue).multiplyScalar(1.3);
+      bc.userData.halo.material.color.set(on ? cat.color : C.blue);
+    },
+
+    updateFinish() {
+      const show = this.engine.activeCount() > 0 && this.S.phase === 'studio';
+      const b = this.btnFinish;
+      if (show === b.userData.shown) return;
+      b.userData.shown = show;
+      const s = b.userData.base || 1;
+      if (show) { b.visible = true; tween(0.35, k => b.scale.setScalar(Math.max(0.001, k * s)), null, ease.back); }
+      else tween(0.2, k => b.scale.setScalar(Math.max(0.001, (1 - k) * s)), () => { b.visible = false; });
+    },
+
+    button(id) {
+      const S = this.S, E = this.engine;
+      const btn = { start: this.btnStart, play: this.btnPlay, reset: this.btnReset, finish: this.btnFinish, 'res-play': this.resPlay, 'res-back': this.resBack, 'res-new': this.resNew }[id];
+      if (btn) { btn.userData.press = 1; }
+      if (this._lock) return;
+      switch (id) {
+        case 'start': return this.startStudio();
+        case 'play':
+        case 'res-play':
+          if (!E.ctx) return;
+          E.unlock();
+          if (E.activeCount() === 0) {
+            this.pulseProps();
+            return this.say('Tu mezcla está vacía. Elegí un instrumento y llevalo a su personaje.', '#ffd27a', 4200);
+          }
+          if (E.playing) { E.pause(); S.userPaused = true; } else { E.play(); S.userPaused = false; }
+          return this.redrawPanels();
+        case 'reset': return this.reset();
+        case 'finish': return this.finish();
+        case 'res-back': return this.backToStudio();
+        case 'res-new': return this.newMix();
+      }
+    },
+
+    pulseProps() {
+      for (const id in this.bases) if (this.bases[id].state === 'home') this.bases[id].pulse = 1;
+    },
+
+    reset(silent = false) {
+      const S = this.S;
+      this.cancelHeld();
+      for (const c of CATS) {
+        if (S.assigned[c.id]) {
+          S.assigned[c.id] = false; this.bases[c.id].check.visible = false; this.setCharActive(c.id, false);
+          const ch = this.chars[c.id], from = new THREE.Vector3(); ch.group.getWorldPosition(from); from.y = ch.top + L.stageTop + 0.5;
+          const b = this.bases[c.id]; b.prop.scale.setScalar(0.1); b.prop.position.copy(from);
+          S.busy[c.id] = false; this.flyHome(c.id, from);
+        }
+      }
+      this.engine.clear();
+      S.userPaused = false;
+      this.updateFinish();
+      this.redrawPanels();
+      if (!silent) this.say('Mezcla vacía. Todos los instrumentos volvieron a su lugar.', '#d7c4ff', 2600);
+    },
+
+    makeName() {
+      const act = CATS.filter(c => this.S.assigned[c.id]);
+      const pick = a => a[Math.floor(Math.random() * a.length)];
+      const tail = ['Solo', 'Duo', 'Groove', 'Wave', 'Anthem'][act.length - 1];
+      const first = pick(act[0].word), last = act.length > 1 ? pick(act[act.length - 1].word) : pick(['Night', 'Dream', 'Glow']);
+      return `${first} ${last} ${tail}`;
+    },
+
+    async finish() {
+      if (this.engine.activeCount() === 0 || this._lock) return;
+      this._lock = true;
+      this.cancelHeld();
+      this.S.name = this.makeName();
+      await this.fadeTo(0.85, 0.3);
+      this.setPhase('result');
+      this.resText.userData.canvas.redraw(this.S.name);
+      this.updateFinish();
+      this.setLightLevel(0.75);
+      this.engine.play(true);           // reproduce desde el comienzo musical
+      this.S.userPaused = false;
+      this.redrawPanels();
+      await this.fadeTo(0, 0.4);
+      this._lock = false;
+    },
+
+    async backToStudio() {
+      if (this._lock) return; this._lock = true;
+      await this.fadeTo(0.85, 0.25);
+      this.setPhase('studio');
+      this.updateFinish();
+      tween(0.6, k => this.setLightLevel(0.75 + 0.25 * k));
+      await this.fadeTo(0, 0.3);
+      this.say('Tu mezcla sigue cargada. Seguí editándola.', '#c9f7c0', 3000);
+      this._lock = false;
+    },
+
+    async newMix() {
+      if (this._lock) return; this._lock = true;
+      await this.fadeTo(0.85, 0.25);
+      this.setPhase('studio');
+      this.reset(true);
+      tween(0.6, k => this.setLightLevel(0.75 + 0.25 * k));
+      await this.fadeTo(0, 0.3);
+      this.say('Mezcla nueva: arrastrá un instrumento para empezar.', '#d7c4ff', 3200);
+      this._lock = false;
+    },
+
+    updateCursor() {
+      const S = this.S, m = this.mouse, canvas = this.el.canvas;
+      let c = 'default';
+      if (S.held && S.held.pointer === m && S.held.mode !== 'select') c = 'grabbing';
+      else if (m.hover) c = m.hover.kind === 'prop' ? 'grab' : 'pointer';
+      if (canvas && canvas.style.cursor !== c) canvas.style.cursor = c;
+    },
+
+    // ------------------------------------------------------------ bucle
+    tick(t, dtMs) {
+      if (!this.ready) return;
+      const dt = Math.min(0.05, dtMs / 1000); this.clock += dt;
+      stepTweens(dt);
+      const S = this.S, E = this.engine, inVR = this.el.is('vr-mode');
+
+      // punteros
+      for (const p of this.pointers) {
+        if (!p.isMouse) {
+          if (!p.active || !inVR) { if (p.laser) p.laser.visible = p.dot.visible = false; continue; }
+          this.updateControllerRay(p);
+        } else if (!p.active || inVR) { p.hover = null; continue; }
+        else if (p.ndc) { const rc = this._mrc || (this._mrc = new THREE.Raycaster()); this.el.camera.updateMatrixWorld(); rc.setFromCamera(p.ndc, this.el.camera); p.ray.copy(rc.ray); }
+        this.updateHover(p);
+        if (!p.isMouse) {
+          const len = p.hoverDist || (S.held && S.held.pointer === p ? S.held.dist : 3);
+          p.laser.visible = true; p.laser.position.copy(p.ray.origin);
+          p.laser.lookAt(p.ray.origin.clone().add(p.ray.direction)); p.laser.scale.set(1, 1, len);
+          p.dot.visible = !!p.hoverPoint; if (p.hoverPoint) p.dot.position.copy(p.hoverPoint);
+        }
+      }
+      this.updateCursor();
+
+      // objeto sostenido
+      const h = S.held;
+      if (h) {
+        const p = h.pointer, obj = h.obj, tgt = new THREE.Vector3();
+        if (h.mode === 'select') {
+          tgt.copy(this.bases[h.id].home); tgt.y += 0.2 + Math.sin(this.clock * 5) * 0.02;
+          obj.rotation.y += dt * 2.2;
+        } else if (p.isMouse) {
+          const moved = Math.hypot(p.px - p.downX, p.py - p.downY) > 8;
+          if (moved) h.dragged = true;
+          if (h.dragged && p.ray.intersectPlane(h.plane, tgt)) { /* sigue al puntero en 3D */ }
+          else { tgt.copy(this.bases[h.id].home); tgt.y += 0.12; }
+        } else {
+          tgt.copy(p.ray.origin).addScaledVector(p.ray.direction, h.dist);
+          if (p.downDir && p.downDir.angleTo(p.ray.direction) > 0.07) h.dragged = true;
+        }
+        obj.position.lerp(tgt, 1 - Math.pow(0.0005, dt));
+        obj.scale.setScalar(THREE.MathUtils.lerp(obj.scale.x, L.propScale * 1.18, 1 - Math.pow(0.001, dt)));
+        for (const m of obj.userData.mats) { m.emissive.setRGB(0.35, 0.3, 0.45); }
+      }
+
+      // instrumentos en sus bases
+      for (const id in this.bases) {
+        const b = this.bases[id], obj = b.prop; if (!obj) continue;
+        const hovered = this.pointers.some(p => p.hover && p.hover.kind === 'prop' && p.hover.id === id) && !h;
+        b.hover = THREE.MathUtils.lerp(b.hover, hovered ? 1 : 0, 1 - Math.pow(0.0001, dt));
+        b.pulse = Math.max(0, (b.pulse || 0) - dt * 0.8);
+        if (b.state === 'home') {
+          obj.position.set(b.home.x, b.home.y + Math.sin(this.clock * 1.6 + b.phase) * 0.022 + b.hover * 0.04, b.home.z);
+          obj.rotation.y = Math.sin(this.clock * 0.5 + b.phase) * 0.35;
+          const pulse = Math.sin(b.pulse * Math.PI * 4) * b.pulse * 0.15;
+          obj.scale.setScalar(L.propScale * (1 + b.hover * 0.12 + pulse));
+          const e = b.hover * 0.28 + b.pulse * 0.4;
+          for (const m of obj.userData.mats) m.emissive.setRGB(e, e * 0.9, e * 1.2);
+        }
+        // anillo de la base
+        const assigned = S.assigned[id];
+        b.ring.userData.halo.material.opacity = assigned ? 0.4 + 0.15 * Math.sin(this.clock * 4) : 0.2 + b.hover * 0.3;
+        b.pad.material.opacity = 0.1 + b.hover * 0.25;
+      }
+
+      // personajes: quietos sin instrumento, baile en fase con el beat cuando suena su pista
+      const lat = E.ctx ? (E.ctx.outputLatency || E.ctx.baseLatency || 0) : 0;
+      const pos = E.position - (E.playing ? lat : 0);
+      const barPhase = ((pos % M.bar) + M.bar) % M.bar / M.bar;
+      const beatPhase = ((pos % M.beat) + M.beat) % M.beat / M.beat;
+      for (const id in this.chars) {
+        const ch = this.chars[id];
+        const validTarget = h && h.mode !== 'drop' && h.id === id;
+        const pointed = this.pointers.some(p => p.hover && p.hover.kind === 'char' && p.hover.id === id);
+        ch.hover = THREE.MathUtils.lerp(ch.hover, validTarget ? (pointed ? 1 : 0.55) : (pointed && S.assigned[id] && !h ? 0.4 : 0), 1 - Math.pow(0.0002, dt));
+        ch.flash = Math.max(0, ch.flash - dt * 2.2);
+        ch.target.material.opacity = ch.hover * (0.35 + 0.25 * Math.sin(this.clock * 8));
+        if (ch.flash > 0) { ch.ring.userData.halo.material.color.set('#ff4d6d'); ch.ring.userData.halo.material.opacity = 0.2 + ch.flash * 0.5; }
+        else if (!S.assigned[id]) { ch.ring.userData.halo.material.color.set(validTarget ? ch.cat.glow : C.coral); ch.ring.userData.halo.material.opacity = 0.16 + ch.hover * 0.45; }
+        else ch.ring.userData.halo.material.opacity = 0.35 + 0.2 * (E.isAudible(id) ? Math.pow(1 - beatPhase, 3) : 0);
+        if (!ch.mixer) continue;
+        const dancing = E.isAudible(id) && S.phase !== 'welcome';
+        ch.danceW = THREE.MathUtils.lerp(ch.danceW, dancing ? 1 : 0, 1 - Math.pow(0.002, dt));
+        if (ch.danceW < 0.002) ch.danceW = 0;
+        ch.dance.time = barPhase * ch.dance.getClip().duration;
+        ch.idle.time = 0;
+        ch.dance.setEffectiveWeight(ch.danceW); ch.idle.setEffectiveWeight(1 - ch.danceW);
+        ch.mixer.update(0);
+        ch.pop = Math.max(0, ch.pop - dt * 2.6);
+        const sc = L.characterScale * (1 + Math.sin(ch.pop * Math.PI) * 0.1);
+        ch.holder.scale.setScalar(sc);
+      }
+
+      // visualizador conectado a la señal real
+      const lv = E.levels(this.levels.length, this._lv);
+      this._lv = lv;
+      const live = E.playing && E.activeCount() > 0;
+      for (let i = 0; i < this.bars.length; i++) {
+        const target = live ? 0.04 + Math.pow(lv[i], 1.3) * 0.75 : this.restBar(i) * 0.5;
+        const g = this.bars[i];
+        g.scale.y = THREE.MathUtils.lerp(g.scale.y, target, 1 - Math.pow(live ? 0.00001 : 0.01, dt));
+      }
+      // parlantes: el domo late con el bombo
+      if (this.speakers) {
+        const k = live ? Math.pow(1 - beatPhase, 4) : 0;
+        for (const sp of this.speakers) for (const key in sp.userData) if (key.startsWith('cone')) sp.userData[key].scale.setScalar(1 + k * 0.25);
+      }
+      // botones: hover y pulsación
+      for (const b of [this.btnReset, this.btnPlay, this.btnFinish, this.btnStart, this.resPlay, this.resBack, this.resNew]) {
+        if (!b || !b.visible) continue;
+        const hov = this.pointers.some(p => p.hover && p.hover.kind === 'button' && p.hover.id === b.userData.id);
+        b.userData.hover = THREE.MathUtils.lerp(b.userData.hover, hov ? 1 : 0, 1 - Math.pow(0.0001, dt));
+        b.userData.press = Math.max(0, (b.userData.press || 0) - dt * 5);
+        if (b === this.btnFinish && !b.userData.settled) { continue; }
+        b.scale.setScalar((b.userData.base || 1) * (1 + b.userData.hover * 0.06 - b.userData.press * 0.08));
+        b.userData.body.material.emissiveIntensity = (b.userData.baseEm ?? (b.userData.baseEm = b.userData.body.material.emissiveIntensity)) + b.userData.hover * 0.4;
+      }
+      if (this.btnFinish.userData.shown && this.btnFinish.scale.x >= 0.77) this.btnFinish.userData.settled = true; else if (!this.btnFinish.userData.shown) this.btnFinish.userData.settled = false;
+      // PLAY late suave en la mezcla vacía para guiar
+      if (S.phase === 'studio' && E.activeCount() === 0) {
+        for (const id in this.bases) if (this.bases[id].state === 'home') this.bases[id].ring.userData.halo.material.opacity = 0.18 + 0.12 * (0.5 + 0.5 * Math.sin(this.clock * 3 + this.bases[id].phase));
+      }
+      // bienvenida
+      if (S.phase === 'welcome') {
+        this.welcomeLogo.position.y = 2.05 + Math.sin(this.clock * 1.2) * 0.04;
+        this.welcomeLogo.rotation.y = Math.sin(this.clock * 0.6) * 0.08;
+        const rings = this.welcome.userData.rings; rings.forEach((r, i) => { r.rotation.z = this.clock * (0.05 + i * 0.03) * (i % 2 ? -1 : 1); });
+        this.welcome.userData.dots.rotation.y = Math.sin(this.clock * 0.1) * 0.1;
+      }
+      if (this._lastPlaying !== E.playing) { this._lastPlaying = E.playing; this.redrawPanels(); }
+    },
+
+    setupVRButton() {
+      const btn = document.getElementById('enter-vr');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        this.engine.unlock();
+        try { await this.el.enterVR(); } catch (e) { console.warn(e); }
+      });
+      if (navigator.xr && navigator.xr.isSessionSupported) {
+        navigator.xr.isSessionSupported('immersive-vr').then(ok => { if (ok) btn.hidden = false; }).catch(() => {});
+      }
+    }
+  });
+})();

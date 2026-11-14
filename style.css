@@ -1,0 +1,65 @@
+@font-face {
+    font-family: "Poppins";
+    font-weight: 600;
+    src: url("assets/fonts/Poppins-600.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Poppins";
+    font-weight: 800;
+    src: url("assets/fonts/Poppins-800.woff2") format("woff2");
+}
+
+html,
+body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background-color: #07040d;
+    font-family: "Poppins", Arial, sans-serif;
+    color: #efe6ff;
+}
+
+a-scene canvas {
+    touch-action: none;
+}
+
+#loading {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: #07040d;
+    color: #b48cff;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    z-index: 10;
+    transition: opacity 0.4s;
+}
+
+#enter-vr {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 20;
+    padding: 12px 20px;
+    border: 2px solid #b06bff;
+    border-radius: 999px;
+    background: rgba(24, 12, 38, 0.85);
+    color: #f1e8ff;
+    font: 800 15px "Poppins", Arial, sans-serif;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    box-shadow: 0 0 18px rgba(166, 77, 255, 0.55);
+}
+
+#enter-vr:hover,
+#enter-vr:focus-visible {
+    background: #8a2cff;
+    outline: none;
+}
+
+#enter-vr[hidden],
+body.in-vr #enter-vr {
+    display: none;
+}

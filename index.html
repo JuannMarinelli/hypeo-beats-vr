@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HYPEO BEATS</title>
+    <meta name="description" content="Estudio musical 3D: llevá cada sonido a su personaje y creá tu propio beat. Mouse o mandos VR.">
+
+    <!-- A-Frame 1.6.0 servido localmente (rutas relativas: funciona también dentro de una subcarpeta) -->
+    <script src="vendor/aframe-v1.6.0.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/audio-engine.js"></script>
+    <script src="js/builders.js"></script>
+    <script src="script.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="loading">Cargando estudio…</div>
+    <button id="enter-vr" type="button" hidden>Entrar en VR</button>
+    <noscript>HYPEO BEATS necesita JavaScript y WebGL.</noscript>
+
+    <a-scene
+        hypeo-game
+        renderer="antialias: true; colorManagement: true; highRefreshRate: true; foveationLevel: 0.5"
+        vr-mode-ui="enabled: false"
+        webxr="referenceSpaceType: local-floor; optionalFeatures: local-floor, bounded-floor"
+        loading-screen="enabled: false"
+        device-orientation-permission-ui="enabled: false">
+
+        <!-- RIG DEL JUGADOR: queda en el piso (y = 0). La altura de ojos la pone solo la cámara:
+             1,6 m en escritorio; en VR el visor reemplaza esa posición con el seguimiento real. -->
+        <a-entity id="rig" position="0 0 3.0">
+            <a-entity id="camera"
+                camera="fov: 60; near: 0.05; far: 60; userHeight: 0"
+                position="0 1.6 0"
+                look-controls="mouseEnabled: false; touchEnabled: false; magicWindowTrackingEnabled: false; pointerLockEnabled: false">
+            </a-entity>
+
+            <!-- Mandos VR: rayo + gatillo/grip. El modelo del mando se reemplaza por una mano translúcida. -->
+            <a-entity id="hand-left" laser-controls="hand: left; model: false" raycaster="objects: .hy-none; showLine: false; far: 12"></a-entity>
+            <a-entity id="hand-right" laser-controls="hand: right; model: false" raycaster="objects: .hy-none; showLine: false; far: 12"></a-entity>
+        </a-entity>
+    </a-scene>
+</body>
+</html>
