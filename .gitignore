@@ -1,3 +1,4 @@
 blender/preview/
 __pycache__/
 *.blend1
+captures/
