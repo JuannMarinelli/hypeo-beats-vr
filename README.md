@@ -1,8 +1,8 @@
 # HYPEO BEATS · estudio musical 3D / VR
 
 Experiencia web (A-Frame 1.6, HTML/CSS/JS estático): bienvenida → selección de género → estudio → "Tu creación".
-Tocá **JUGAR** y elegí Reggaeton, Trap, R&B, Detroit, Dembow, Drill, Rkt, House, Bachata, Guaracha o Jazz. Cada género tiene su propio tempo, armonía y sonidos.
-Arrastrá cualquiera de los nueve instrumentos a cualquiera de los cinco personajes. Cada personaje toca una variante rítmica distinta. Podés reemplazar el instrumento de un personaje sin detener la mezcla.
+Tocá **JUGAR** y elegí Reggaeton, Trap, R&B, Detroit, Dembow, Drill, Rkt, House, Bachata, Guaracha o Jazz. Cada género tiene su propio BPM, arreglo y paleta de nueve instrumentos. Las pistas se generan individualmente y se sincronizan al reloj de la mezcla.
+Girá la plataforma y arrastrá cualquiera de los nueve instrumentos a cualquiera de los cinco personajes. Cada personaje toca una variante rítmica distinta. Podés reemplazar el instrumento de un personaje sin detener la mezcla.
 
 ## Ejecutar en local
 
@@ -17,6 +17,28 @@ Abrir http://localhost:8080/ (URL **local**). No hay dependencias remotas: A-Fra
 - **Mouse**: arrastrar un instrumento flotante y soltarlo sobre cualquier personaje, o clic en el instrumento + clic en el personaje.
   Clic en un personaje/pedestal asignado = quitar la pista. Botones 3D: PLAY/PAUSE, RESET, FINISH MIX (aparece con ≥1 pista).
 - **VR**: botón "Entrar en VR" (solo si el navegador soporta `immersive-vr`). Rayo del mando + gatillo o grip para agarrar/soltar y para los botones.
+
+- **Plataforma**. Tocá ◀ o ▶ con el mouse o los mandos. Con mouse o trackpad también podés usar la rueda. Los instrumentos aparecen de a tres al frente.
+- **Géneros**. Volvé al selector desde el estudio. Si volvés al mismo género recuperás tu mezcla. Si elegís otro se inicia una mezcla nueva.
+- **FINISH MIX**. Escribí un título con el teclado o usá el teclado 3D en VR. Podés editarlo desde el resultado.
+
+## Paletas y tempo
+
+Cada instrumento se sintetiza en su propio buffer. Los stems son originales y las canciones de referencia orientan el groove, la instrumentación y las texturas. Cada stem tiene cinco interpretaciones, una por personaje.
+
+| Género | BPM | Sonidos del estudio |
+| --- | ---: | --- |
+| Reggaeton | 98 | Kick, caja dembow, bajo sub, keys, pad y vocal chops |
+| Trap | 150 | 808, campanas, clap, hi-hat rolls y pad oscuro |
+| R&B | 96 | Rhodes, bajo redondo, armonías, snap y lead retro |
+| Detroit | 190 | Piano percusivo, 808 corto, caja seca y stabs |
+| Dembow | 115 | Kick y caja dembow, güira, campana, metales y coro picado |
+| Drill | 144 | 808 con glide, piano oscuro, hi-hat rolls y cuerdas |
+| Rkt | 104 | Bombo, bajo saturado, cencerro, güiro y voces picadas |
+| House | 126 | Kick a negras, bajo al contratiempo, hi-hat abierto y guitarra disco |
+| Bachata | 128 | Requinto, guitarra segunda, bongó, güira y bajo |
+| Guaracha | 134 | Trompetas, teclas, bajo al contratiempo, silbidos y FX de subida |
+| Jazz | 132 | Contrabajo, piano, saxo, escobillas, ride y scat |
 
 ## Estructura
 

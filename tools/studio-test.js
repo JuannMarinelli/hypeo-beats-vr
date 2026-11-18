@@ -42,7 +42,17 @@ async function main() {
       const { x, y } = await point(kind, id);
       await page.mouse.click(x, y);
     };
+    const platformIdle = () => wait(() => !__hypeo.carouselMotion || __hypeo.carouselMotion.t === 1);
+    const showInstrument = async id => {
+      for (let turn = 0; turn < 9; turn++) {
+        if (await page.evaluate(id => __hypeo.bases[id].front, id)) return;
+        await click('button', 'rotate-right');
+        await platformIdle();
+      }
+      throw new Error('Instrumento inaccesible: ' + id);
+    };
     const drag = async (instrument, character) => {
+      await showInstrument(instrument);
       const from = await point('prop', instrument);
       const to = await point('char', character);
       await page.mouse.move(from.x, from.y);
@@ -73,6 +83,17 @@ async function main() {
     fs.mkdirSync(out, { recursive: true });
     await page.screenshot({ path: path.join(out, `studio-${width}x${height}.png`), timeout: 90000 });
     console.log(`Studio captured at ${width}×${height}`);
+
+    const seen = new Set();
+    for (let turn = 0; turn < 9; turn++) {
+      const visible = await page.evaluate(() => Object.entries(__hypeo.bases)
+        .filter(([, base]) => base.prop.visible).map(([id]) => id));
+      assert.equal(visible.length, 3);
+      for (const id of visible) seen.add(id);
+      await click('button', 'rotate-left');
+      await platformIdle();
+    }
+    assert.equal(seen.size, 9);
 
     const tracks = ['vocals', ...extras];
     for (const [index, id] of tracks.entries()) {
@@ -111,34 +132,54 @@ async function main() {
     });
     assert.equal(differentPatterns, true);
 
+    await click('button', 'genres');
+    await phase('genres');
+    assert.equal(await page.evaluate(() => __hypeo.engine.playing), false);
+    await click('button', 'genre-back');
+    await phase('studio');
+    await count(4);
+    assert.equal(await page.evaluate(() => __hypeo.engine.playing), true);
+
     await click('button', 'finish');
+    const nameInput = page.getByRole('textbox', { name: 'Ponele un nombre a tu beat' });
+    await nameInput.fill('Mi canción 2026');
+    await page.getByRole('button', { name: 'Guardar nombre' }).click();
     await phase('result');
-    assert.ok(await page.evaluate(() => __hypeo.S.name && __hypeo.engine.playing));
+    assert.deepEqual(await page.evaluate(() => [__hypeo.S.name, __hypeo.engine.playing]), ['Mi canción 2026', true]);
+    await click('button', 'res-rename');
+    await nameInput.fill('Título descartado');
+    await page.getByRole('button', { name: 'Volver', exact: true }).click();
+    await phase('result');
+    assert.equal(await page.evaluate(() => __hypeo.S.name), 'Mi canción 2026');
     await click('button', 'res-back');
     await phase('studio');
     await count(4);
     await click('button', 'reset');
     await count(0);
-    await wait(() => !__hypeo.engine.playing && !__hypeo.btnFinish.visible && Object.values(__hypeo.bases).every(base => base.state === 'home' && base.prop.visible));
+    await wait(() => !__hypeo.engine.playing && !__hypeo.btnFinish.visible && Object.values(__hypeo.bases).every(base => base.state === 'home' && base.prop.visible === base.front));
 
+    await showInstrument('beats');
     await click('prop', 'beats');
     await wait(() => __hypeo.S.held?.mode === 'select');
     await click('char', 'fx');
     await count(1);
     assert.equal(await page.evaluate(() => __hypeo.chars.fx.instrument), 'beats');
-    await click('button', 'finish');
-    await phase('result');
-    await click('button', 'res-new');
+    await click('button', 'genres');
+    await phase('genres');
+    await click('button', 'genre-detroit');
     await phase('studio');
+    assert.deepEqual(await page.evaluate(() => [
+      __hypeo.S.genre.bpm, __hypeo.instrument('melody').label, __hypeo.engine.cache.size
+    ]), [190, 'Piano Detroit', 0]);
     await count(0);
-    await wait(() => Object.values(__hypeo.bases).every(base => base.state === 'home' && base.prop.visible));
+    await wait(() => Object.values(__hypeo.bases).every(base => base.state === 'home' && base.prop.visible === base.front));
 
     for (const asset of [...characters.map(id => `${id}.glb`), 'props.glb', 'logo.glb',
       'Poppins-800.woff2', 'Poppins-600.woff2', 'PermanentMarker.woff2']) {
       assert.ok(assets.has(asset), `Missing asset response: ${asset}`);
     }
     assert.deepEqual(errors, []);
-    console.log('Passed: genre selection, all four new instruments, free assignment, replacement, distinct rhythms, visualizer, playback and result.');
+    console.log('Passed: nine carousel slots, free assignment, genre switching, independent stems, playback and custom titles.');
   } finally {
     await browser.close();
   }

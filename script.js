@@ -72,13 +72,14 @@
       this.buildWelcome();
       this.buildGenreMenu();
       this.buildResult();
+      this.buildNaming();
       this.buildFade();
       this.setupPointers();
       this.setupVRButton();
       this.fitCamera();
       window.addEventListener('resize', () => this.fitCamera());
-      sc.addEventListener('enter-vr', () => { this.cancelHeld(); document.body.classList.add('in-vr'); this.engine.unlock(); });
-      sc.addEventListener('exit-vr', () => { this.cancelHeld(); document.body.classList.remove('in-vr'); setTimeout(() => this.fitCamera(), 50); });
+      sc.addEventListener('enter-vr', () => { this.cancelHeld(); document.body.classList.add('in-vr'); this.engine.unlock(); this.refreshNaming(); });
+      sc.addEventListener('exit-vr', () => { this.cancelHeld(); document.body.classList.remove('in-vr'); this.refreshNaming(); setTimeout(() => this.fitCamera(), 50); });
       window.addEventListener('blur', () => this.cancelHeld());
       document.addEventListener('visibilitychange', () => { if (document.hidden) this.cancelHeld(); });
 
@@ -109,7 +110,7 @@
       const ref = 16 / 9, base = THREE.MathUtils.degToRad(L.baseVFov);
       // mantiene el ancho visible de 16:9 en pantallas más angostas
       let v = aspect >= ref ? base : 2 * Math.atan(Math.tan(base / 2) * ref / aspect);
-      v = Math.min(v, THREE.MathUtils.degToRad(100));
+      v = Math.min(v, THREE.MathUtils.degToRad(130));
       this.camEl.setAttribute('camera', 'fov', THREE.MathUtils.radToDeg(v));
     },
 
@@ -150,19 +151,41 @@
         this.chars[id] = Object.assign(ped, { index: i, instrument: null, hover: 0, pop: 0, mixer: null });
         this.addTarget('char', id, [ped.hit]);
       });
+      this.carouselAngle = 0;
+      this.carouselStep = 2 * Math.PI / INSTRUMENTS.length;
+      const { z, radius, lift } = L.carousel;
+      this.carousel = new THREE.Group();
+      this.carousel.position.set(0, L.consoleTop, z);
+      const tray = new THREE.Mesh(new THREE.CylinderGeometry(radius + .26, radius + .24, lift, 64),
+        B.mat('#241434', { metalness: .32, roughness: .48 }));
+      tray.position.y = lift / 2;
+      const rim = B.neonTorus(radius + .24, .013, C.neon, Math.PI * 2, 1.3, 2.5, .13);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = lift;
+      const mark = B.neonBar(.16, .007, C.coral);
+      mark.position.set(0, lift + .012, radius + .21);
+      mark.rotation.z = Math.PI / 2;
+      this.carouselRotor = new THREE.Group();
+      this.carouselRotor.add(tray, rim);
+      const tickGeometry = new THREE.BoxGeometry(.018, .006, .12);
+      const tickMaterial = B.neon('#7145b4', .95);
+      INSTRUMENTS.forEach((_, i) => {
+        const angle = i * this.carouselStep;
+        const tick = new THREE.Mesh(tickGeometry, tickMaterial);
+        tick.position.set(Math.sin(angle) * .48, lift + .008, Math.cos(angle) * .48);
+        tick.rotation.y = angle;
+        this.carouselRotor.add(tick);
+      });
+      this.carousel.add(this.carouselRotor, mark);
+      root.add(this.carousel);
       INSTRUMENTS.forEach((cat, i) => {
-        const accessory = i >= CHARACTERS.length;
-        const a = THREE.MathUtils.degToRad(L.propAngles[i] || 0);
-        const bx = accessory ? L.accessoryX[i - CHARACTERS.length] : L.consoleCenter.x + Math.sin(a) * L.propRadius;
-        const bz = accessory ? L.accessoryZ : L.consoleCenter.z - Math.cos(a) * L.propRadius;
-        const lift = accessory ? 0 : L.rearBaseLift;
-        const base = B.buildPropBase(cat, lift);
-        base.group.position.set(bx, L.consoleTop, bz);
+        const base = B.buildPropBase(cat, 0);
         root.add(base.group);
-        this.bases[cat.id] = Object.assign(base, { home: new THREE.Vector3(bx, L.consoleTop + lift + 0.1, bz), prop: null,
+        this.bases[cat.id] = Object.assign(base, { home: new THREE.Vector3(), index: i, prop: null,
           state: 'home', hover: 0, phase: i * 1.3 });
         this.addTarget('base', cat.id, [base.hit]);
       });
+      this.positionCarousel();
       // logo + subtítulo
       this.logoGroup = new THREE.Group(); this.logoGroup.position.set(0, 4.55, -4.3); this.logoGroup.scale.set(0.88, 0.77, 0.88); root.add(this.logoGroup);
       const sub = B.textPlane(2.6, 0.22, 1024, (ctx, w, h) => {
@@ -180,7 +203,7 @@
       this.leftText = B.textPlane(sw - 0.12, sh - 0.12, 1024, (ctx, w, h, main, st) => {
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         ctx.font = B.font(600, 66);
-        const lines = B.wrap(ctx, main || 'Arrastrá un instrumento a cualquier personaje', w * 0.84);
+        const lines = B.wrap(ctx, main || 'Girá la plataforma y arrastrá un instrumento a cualquier personaje', w * 0.84);
         lines.forEach((ln, k) => B.glowText(ctx, ln, w * 0.08, h * 0.26 + k * 84, B.font(600, 66), '#efe6ff', '#b46bff', 10));
         // destello de cuatro puntas
         const sx = w * 0.86, sy = h * 0.72, r = 38;
@@ -200,15 +223,16 @@
         ctx.font = B.font(600, 38);
         ctx.fillStyle = '#9d8cc4';
         ctx.textAlign = 'right';
-        ctx.fillText(state || 'vacía', w * 0.92, h * 0.24);
+        ctx.fillText(genre ? genre.bpm + ' BPM' : state || 'vacía', w * 0.92, h * 0.24);
         ctx.textAlign = 'left';
         if (list && list.length) {
-          let x = w * 0.08;
+          let x = w * 0.08, y = h * .75;
           for (const c of list) {
-            ctx.font = B.font(800, 26); const tw = ctx.measureText(c.label).width + 22;
+            ctx.font = B.font(800, 23); const tw = ctx.measureText(c.label).width + 22;
+            if (x + tw > w * .93) { x = w * .08; y += 42; }
             ctx.fillStyle = c.color + '44'; ctx.strokeStyle = c.color; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, h * 0.83, tw, 41, 20) : ctx.rect(x, h * 0.83, tw, 41); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = '#ffffff'; ctx.fillText(c.label, x + 11, h * 0.83 + 29); x += tw + 9;
+            ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, tw, 41, 20) : ctx.rect(x, y, tw, 41); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#ffffff'; ctx.fillText(c.label, x + 11, y + 29); x += tw + 9;
           }
         }
       });
@@ -253,15 +277,57 @@
       this.btnReset = mk('reset', 0.46, 0.15, { fill: '#17111f', rim: '#9b52ff', text: 'RESET', icon: 'reset', textColor: '#e6dcff' }, [-0.23, z + 0.02]);
       this.btnPlay = mk('play', 0.52, 0.17, { fill: '#8a2cff', emissive: '#7a22ff', emissiveIntensity: 0.9, rim: '#cf9dff', text: 'PLAY', icon: 'play', textColor: '#ffffff', textGlow: '#ffffff' }, [0.29, z]);
       this.btnFinish = mk('finish', 0.56, 0.15, { fill: '#2a0f2e', emissive: '#ff3fb4', emissiveIntensity: 0.35, rim: '#ff6fc8', text: 'FINISH MIX', icon: 'flag', textColor: '#ffe3f4', textGlow: '#ff6fc8' }, [0.85, z - 0.1]);
+      const navigation = text => ({ fill: '#29153e', rim: '#ad6cff', text, textColor: '#ffffff' });
+      this.btnRotateLeft = mk('rotate-left', .31, .17, navigation('‹'), [-1.07, 1.18]);
+      this.btnRotateRight = mk('rotate-right', .31, .17, navigation('›'), [1.07, 1.18]);
+      this.btnGenres = mk('genres', .52, .16, navigation('GÉNEROS'), [-.81, z - .08]);
+      this.studioButtons = [this.btnReset, this.btnPlay, this.btnRotateLeft, this.btnRotateRight, this.btnGenres];
       this.btnFinish.rotation.y = -0.28;
       this.btnFinish.visible = false; this.btnFinish.scale.setScalar(0.001); this.btnFinish.userData.base = 0.78;
+    },
+
+    positionCarousel() {
+      this.carouselRotor.rotation.y = this.carouselAngle;
+      const visible = this.S.phase === 'studio';
+      const { z, radius, lift } = L.carousel;
+      for (const base of Object.values(this.bases)) {
+        const angle = base.index * this.carouselStep + this.carouselAngle;
+        const x = Math.sin(angle) * radius;
+        const depth = z + Math.cos(angle) * radius;
+        base.group.position.set(x, L.consoleTop + lift, depth);
+        base.home.set(x, L.consoleTop + lift + .092, depth);
+        base.front = Math.cos(angle) >= .70;
+        base.group.visible = visible && base.front;
+        if (!base.prop) continue;
+        if (base.state === 'home') base.prop.position.copy(base.home);
+        base.prop.visible = visible && (base.state === 'held' ||
+          (base.state !== 'assigned' && base.front));
+      }
+    },
+
+    rotateCarousel(direction) {
+      this.cancelHeld();
+      if (this.carouselMotion) this.carouselMotion.dead = true;
+      const from = this.carouselAngle % (Math.PI * 2);
+      let to = (this.carouselTarget ?? 0) + direction * this.carouselStep;
+      while (to - from > Math.PI) to -= Math.PI * 2;
+      while (to - from < -Math.PI) to += Math.PI * 2;
+      this.carouselTarget = to;
+      this.carouselMotion = tween(.32, k => {
+        this.carouselAngle = THREE.MathUtils.lerp(from, to, k);
+        this.positionCarousel();
+      }, null, ease.inOut);
+    },
+
+    instrument(id) {
+      return this.S.genre?.instruments[id] || byId[id];
     },
 
     redrawPanels() {
       const st = this.status && this.clock < this.status.until ? this.status : null;
       const main = this.S.phase === 'result' ? 'Tu beat quedó listo. Escuchalo, volvé al estudio o empezá de cero.' : null;
       this.leftText.userData.canvas.redraw(main, st);
-      const list = INSTRUMENTS.filter(c => this.S.assigned[c.id]);
+      const list = INSTRUMENTS.filter(c => this.S.assigned[c.id]).map(c => this.instrument(c.id));
       const state = !list.length ? 'vacía' : this.engine.playing ? 'sonando' : 'en pausa';
       this.rightText.userData.canvas.redraw(list, state, this.S.genre);
       this.btnPlay.userData.label.userData.canvas.redraw(this.engine.playing ? 'PAUSE' : 'PLAY', this.engine.playing ? 'pause' : 'play');
@@ -304,31 +370,53 @@
     },
 
     mountProps(gltf) {
+      this.propScene = gltf.scene;
       for (const cat of INSTRUMENTS) {
         const g = new THREE.Group();
-        const model = cat.prop ? gltf.scene.getObjectByName(cat.prop).clone(true) : B.buildAccessory(cat);
-        const m = new THREE.Group();
-        m.add(model);
-        model.position.set(0, 0, 0);
-        model.traverse(o => {
-          if (!o.isMesh) return;
-          o.material = o.material.clone();
-          o.material.emissiveMap = o.material.map;
-          o.material.emissive = new THREE.Color('#000000');
-        });
-        const box = new THREE.Box3().setFromObject(m), c = box.getCenter(new THREE.Vector3());
-        m.position.set(-c.x, -box.min.y, -c.z);
-        g.add(m);
-        g.scale.setScalar(L.propScale);
-        g.userData.mats = []; g.traverse(o => o.isMesh && g.userData.mats.push(o.material));
-        const hit = new THREE.Mesh(new THREE.SphereGeometry(cat.prop ? 0.19 : 0.15, 12, 8), new THREE.MeshBasicMaterial({ visible: false }));
-        hit.position.y = cat.prop ? 0.14 : 0.12; g.add(hit);
+        const hit = new THREE.Mesh(new THREE.SphereGeometry(.16, 12, 8),
+          new THREE.MeshBasicMaterial({ visible: false }));
+        g.add(hit);
         const base = this.bases[cat.id];
+        base.models = new Map();
+        base.prop = g;
+        base.propHit = hit;
+        this.setPropModel(base, cat.id, cat);
         g.position.copy(base.home);
         this.studio.add(g);
-        base.prop = g; base.propHit = hit;
         this.addTarget('prop', cat.id, [hit]);
       }
+    },
+
+    setPropModel(base, shape, instrument) {
+      const obj = base.prop;
+      let entry = base.models.get(shape);
+      if (!entry) {
+        const appearance = byId[shape];
+        const model = appearance?.prop
+          ? this.propScene.getObjectByName(appearance.prop).clone(true)
+          : B.buildAccessory({ ...instrument, id: shape });
+        const holder = new THREE.Group();
+        model.position.set(0, 0, 0);
+        holder.add(model);
+        const bounds = new THREE.Box3().setFromObject(holder);
+        const center = bounds.getCenter(new THREE.Vector3());
+        const materials = [];
+        model.traverse(node => {
+          if (!node.isMesh) return;
+          node.material = node.material.clone();
+          node.material.emissiveMap = node.material.map;
+          node.material.emissive = new THREE.Color('#000000');
+          materials.push(node.material);
+        });
+        holder.position.set(-center.x, -bounds.min.y, -center.z);
+        entry = { holder, materials, height: bounds.max.y - bounds.min.y };
+        base.models.set(shape, entry);
+      }
+      if (base.model) obj.remove(base.model);
+      base.model = entry.holder;
+      obj.add(entry.holder);
+      obj.userData.mats = entry.materials;
+      base.propHit.position.y = Math.min(.18, entry.height / 2);
     },
 
     mountCharacter(id, gltf) {
@@ -408,6 +496,14 @@
       });
       title.position.set(0, 0.72, 0.07);
       panel.add(title);
+      this.genreHint = B.textPlane(2.58, .16, 1024, (ctx, w, h) => {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        B.glowText(ctx, 'Cambiar de género inicia una mezcla nueva', w / 2, h / 2,
+          B.font(600, 38), '#e3ceff', null);
+      });
+      this.genreHint.position.set(0, -.79, .07);
+      panel.add(this.genreHint);
 
       const add = (id, text, x, y, back = false) => {
         const button = B.buildButton(.79, .23, {
@@ -438,17 +534,113 @@
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         B.glowText(ctx, 'YOU JUST CREATED YOUR HYPEO BEAT!', cw / 2, ch * 0.22, B.font(800, 50), '#ffffff', '#c06bff', 20);
         ctx.font = B.font(600, 30); ctx.fillStyle = '#a596c8'; ctx.fillText('Nombre de tu composición', cw / 2, ch * 0.48);
-        B.glowText(ctx, '“' + (name || '') + '”', cw / 2, ch * 0.74, B.font(400, 74, 'Marker'), '#ffb8ea', '#ff3fb4', 18);
+        const title = '“' + (name || '') + '”';
+        ctx.font = B.font(400, 74, 'Marker');
+        const size = Math.min(74, 74 * cw * .86 / ctx.measureText(title).width);
+        B.glowText(ctx, title, cw / 2, ch * 0.74, B.font(400, size, 'Marker'), '#ffb8ea', '#ff3fb4', 18);
       });
       this.resText.position.set(0, 0.12, 0.04); g.add(this.resText);
       const mk = (id, bw, opts, x) => {
         const b = B.buildButton(bw, 0.13, opts); b.position.set(x, -0.25, 0.05);
         b.userData.id = id; b.userData.hover = 0; g.add(b); this.addTarget('button', id, [b.userData.body]); return b;
       };
-      this.resPlay = mk('res-play', 0.42, { fill: '#8a2cff', emissive: '#7a22ff', emissiveIntensity: 0.9, rim: '#d7a8ff', text: 'PAUSE', icon: 'pause', textColor: '#fff', textGlow: '#fff' }, -0.6);
-      this.resBack = mk('res-back', 0.62, { fill: '#17111f', rim: '#9b52ff', text: 'VOLVER AL ESTUDIO', icon: 'back', textColor: '#e6dcff' }, 0.0);
-      this.resNew = mk('res-new', 0.52, { fill: '#2a0f2e', emissive: '#ff3fb4', emissiveIntensity: 0.3, rim: '#ff6fc8', text: 'NUEVA MEZCLA', icon: 'plus', textColor: '#ffe3f4' }, 0.64);
+      this.resPlay = mk('res-play', 0.32, { fill: '#8a2cff', emissive: '#7a22ff', emissiveIntensity: 0.9, rim: '#d7a8ff', text: 'PAUSE', icon: 'pause', textColor: '#fff', textGlow: '#fff' }, -0.76);
+      this.resBack = mk('res-back', 0.48, { fill: '#17111f', rim: '#9b52ff', text: 'ESTUDIO', icon: 'back', textColor: '#e6dcff' }, -0.31);
+      this.resNew = mk('res-new', 0.51, { fill: '#2a0f2e', emissive: '#ff3fb4', emissiveIntensity: 0.3, rim: '#ff6fc8', text: 'NUEVA MEZCLA', icon: 'plus', textColor: '#ffe3f4' }, 0.69);
+      this.resRename = mk('res-rename', 0.44, { fill: '#17111f', rim: '#9b52ff', text: 'RENOMBRAR', textColor: '#e6dcff' }, 0.19);
       g.visible = false;
+    },
+
+    buildNaming() {
+      this.nameDialog = document.getElementById('mix-name-dialog');
+      this.nameInput = document.getElementById('mix-name');
+      this.nameInput.addEventListener('input', () => { this.nameDraft = this.nameInput.value; });
+      document.getElementById('mix-name-form').addEventListener('submit', e => {
+        e.preventDefault();
+        this.saveName();
+      });
+      this.nameDialog.addEventListener('cancel', e => { e.preventDefault(); this.cancelNaming(); });
+      document.getElementById('mix-name-back').addEventListener('click', () => this.cancelNaming());
+
+      const panel = this.nameKeyboard = new THREE.Group();
+      panel.position.copy(this.result.position);
+      panel.position.y += .16;
+      panel.add(B.buildScreen(2.1, 1.15));
+      this.el.object3D.add(panel);
+      panel.visible = false;
+      this.nameKeys = [];
+      this.namePreview = B.textPlane(1.95, .21, 768, (ctx, w, h, value) => {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const text = value || 'Ponele un nombre a tu beat';
+        ctx.font = B.font(600, 42);
+        const size = Math.min(42, 42 * w * .92 / ctx.measureText(text).width);
+        B.glowText(ctx, text, w / 2, h / 2, B.font(600, size), '#ffffff', C.neon, 12);
+      });
+      this.namePreview.position.set(0, .39, .07);
+      panel.add(this.namePreview);
+
+      const key = (id, text, x, y, width = .16) => {
+        const b = B.buildButton(width, .112, { fill: '#30164a', rim: '#a46ae1', text, textColor: '#fff' });
+        b.position.set(x, y, .085);
+        b.userData.id = 'name-' + id;
+        b.userData.hover = 0;
+        panel.add(b);
+        this.addTarget('button', b.userData.id, [b.userData.body]);
+        this.nameKeys.push(b);
+      };
+      ['1234567890', 'QWERTYUIOP', 'ASDFGHJKLÑ', 'ZXCVBNM'].forEach((row, i) => {
+        [...row].forEach((letter, j) => key(letter, letter, (j - (row.length - 1) / 2) * .18, .19 - i * .14));
+      });
+      key('cancel', 'Volver', -.77, -.42, .34);
+      key('space', 'Espacio', -.33, -.42, .48);
+      key('delete', 'Borrar', .12, -.42, .36);
+      key('save', 'Guardar nombre', .66, -.42, .67);
+    },
+
+    beginNaming(from) {
+      this.nameReturn = from;
+      this.nameDraft = this.S.name || this.makeName();
+      this.setPhase('naming');
+    },
+
+    refreshNaming() {
+      const naming = this.S.phase === 'naming';
+      const vr = this.el.is('vr-mode');
+      this.nameKeyboard.visible = naming && vr;
+      if (naming && !vr) {
+        this.nameInput.value = this.nameDraft;
+        if (!this.nameDialog.open) {
+          this.nameDialog.showModal();
+          this.nameInput.select();
+        }
+      } else if (this.nameDialog.open) {
+        this.nameDialog.close();
+      }
+      if (naming && vr) this.namePreview.userData.canvas.redraw(this.nameDraft);
+    },
+
+    nameAction(key) {
+      if (this.S.phase !== 'naming') return;
+      if (key === 'cancel') return this.cancelNaming();
+      if (key === 'save') return this.saveName();
+      if (key === 'delete') this.nameDraft = this.nameDraft.slice(0, -1);
+      else if (this.nameDraft.length < 40) this.nameDraft += key === 'space' ? ' ' : key;
+      this.namePreview.userData.canvas.redraw(this.nameDraft);
+    },
+
+    cancelNaming() {
+      this.setPhase(this.nameReturn);
+      this.updateFinish();
+    },
+
+    saveName() {
+      if (this.S.phase !== 'naming' || this._lock) return;
+      this.S.name = this.nameDraft.trim() || this.S.name || this.makeName();
+      this.resText.userData.canvas.redraw(this.S.name);
+      if (this.nameReturn === 'result') return this.setPhase('result');
+      this.nameDialog.close();
+      return this.showResult();
     },
 
     buildFade() {
@@ -468,15 +660,14 @@
       this.S.phase = p;
       this.welcome.visible = p === 'welcome';
       this.genreMenu.visible = p === 'genres';
-      this.studio.visible = p === 'studio' || p === 'result';
+      this.genreHint.visible = this.engine.activeCount() > 0;
+      this.studio.visible = p === 'studio' || p === 'result' || p === 'naming';
       this.result.visible = p === 'result';
       const studioUI = p === 'studio';
-      for (const id in this.bases) {
-        const b = this.bases[id];
-        b.group.visible = studioUI || p === 'result';
-        if (b.prop) b.prop.visible = studioUI && b.state !== 'assigned';
-      }
-      for (const b of [this.btnReset, this.btnPlay]) b.visible = studioUI;
+      this.carousel.visible = studioUI;
+      this.positionCarousel();
+      for (const b of this.studioButtons) b.visible = studioUI;
+      this.refreshNaming();
       this.btnFinish.visible = studioUI && this.engine.activeCount() > 0;
       if (p === 'welcome') { document.getElementById('loading')?.remove(); this.fadeTo(0, 0.8); this.setLightLevel(0.55); }
       this.redrawPanels();
@@ -487,12 +678,32 @@
       this.engine.unlock();
       try {
         await this.fadeTo(1, 0.3);
-        this.engine.setGenre(genre);
-        this.S.genre = genre;
+        if (this.S.genre !== genre) {
+          this.reset(true);
+          this.engine.setGenre(genre);
+          this.S.genre = genre;
+          this.status.until = 0;
+          if (this.carouselMotion) this.carouselMotion.dead = true;
+          this.carouselMotion = null;
+          this.carouselAngle = this.carouselTarget = 0;
+          for (const [id, base] of Object.entries(this.bases)) {
+            if (base.flight) base.flight.dead = true;
+            base.state = 'home';
+            base.prop.scale.setScalar(L.propScale);
+            this.S.busy[id] = false;
+            const instrument = genre.instruments[id];
+            this.setPropModel(base, instrument.shape, instrument);
+            base.label.userData.canvas.redraw(instrument.label.toUpperCase());
+          }
+        } else if (this.resumeAfterGenres) {
+          this.engine.play();
+        }
+        this.resumeAfterGenres = false;
         this.setPhase('studio');
+        this.updateFinish();
         this.setLightLevel(0);
         await this.fadeTo(0, 0.25);
-        tween(1.1, k => this.setLightLevel(k), null, ease.inOut);
+        this.lightMotion = tween(1.1, k => this.setLightLevel(k), null, ease.inOut);
       } finally {
         this._lock = false;
       }
@@ -512,13 +723,14 @@
         if (t.id === 'start') return p === 'welcome';
         if (t.id.startsWith('genre-')) return p === 'genres';
         if (t.id.startsWith('res-')) return p === 'result';
+        if (t.id.startsWith('name-')) return p === 'naming' && this.nameKeyboard.visible;
         if (t.id === 'finish') return p === 'studio' && this.btnFinish.visible && this.btnFinish.scale.x > 0.4;
         return p === 'studio';
       }
       if (p !== 'studio') return false;
       if (t.kind === 'prop') return this.bases[t.id].state === 'home' && this.bases[t.id].prop.visible && !(S.held && S.held.id === t.id);
       if (t.kind === 'char') return true;
-      if (t.kind === 'base') return !!S.assigned[t.id];
+      if (t.kind === 'base') return this.bases[t.id].front && !!S.assigned[t.id];
       return false;
     },
 
@@ -535,6 +747,11 @@
         rc.setFromCamera(mouse.ndc, cam); mouse.ray.copy(rc.ray); mouse.active = true;
       };
       this._mouseRay = updateRay;
+      canvas.addEventListener('wheel', e => {
+        if (this.S.phase !== 'studio' || this._lock || !e.deltaY || this.carouselMotion?.t < 1) return;
+        e.preventDefault();
+        this.rotateCarousel(Math.sign(e.deltaY));
+      }, { passive: false });
       canvas.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || mouse.down) updateRay(e); });
       canvas.addEventListener('pointerdown', e => {
         if (e.button !== undefined && e.button !== 0) return;
@@ -641,7 +858,7 @@
       if (!moved && !h.dragged) {
         // clic simple: queda seleccionado esperando el clic en el personaje
         h.mode = 'select';
-        this.say(`Tocá un personaje para darle ${byId[h.id].propName}.`, '#d7c4ff', 5000);
+        this.say(`Tocá un personaje para asignar ${this.instrument(h.id).label}.`, '#d7c4ff', 5000);
         return;
       }
       let target = p.hover && p.hover.kind === 'char' ? p.hover.id : null;
@@ -685,11 +902,11 @@
     flyHome(id, from) {
       const S = this.S, b = this.bases[id], obj = b.prop;
       S.busy[id] = true; b.state = 'returning';
-      obj.visible = this.S.phase === 'studio';
-      const to = b.home.clone(), s0 = obj.scale.x;
+      obj.visible = this.S.phase === 'studio' && b.front;
+      const s0 = obj.scale.x;
       if (b.flight) b.flight.dead = true;
       b.flight = tween(0.42, k => {
-        obj.position.lerpVectors(from, to, k); obj.position.y += Math.sin(Math.PI * k) * 0.12;
+        obj.position.lerpVectors(from, b.home, k); obj.position.y += Math.sin(Math.PI * k) * 0.12;
         obj.scale.setScalar(s0 + (L.propScale - s0) * k);
       }, () => { b.state = 'home'; S.busy[id] = false; obj.scale.setScalar(L.propScale); }, ease.out);
     },
@@ -727,10 +944,10 @@
         S.busy[id] = false;
         ch.pop = 1;
       }, ease.inOut);
-      this.updateAssignmentLights(base, ch, byId[id]);
+      this.updateAssignmentLights(base, ch, this.instrument(id));
       this.updateFinish();
-      this.say(this.engine.playing ? `${byId[id].label} se sumó a la mezcla.`
-        : `${byId[id].label} lista. Tocá PLAY para escuchar.`, '#c9f7c0', 2600);
+      this.say(this.engine.playing ? `${this.instrument(id).label} se sumó a la mezcla.`
+        : `${this.instrument(id).label} lista. Tocá PLAY para escuchar.`, '#c9f7c0', 2600);
     },
 
     instrumentPosition(ch) {
@@ -758,7 +975,7 @@
         this.engine.pausedAt = 0;
       }
       this.updateFinish();
-      this.say(`Quitaste ${byId[id].label} de tu mezcla.`, '#d7c4ff', 2600);
+      this.say(`Quitaste ${this.instrument(id).label} de tu mezcla.`, '#d7c4ff', 2600);
     },
 
     updateAssignmentLights(base, ch, instrument) {
@@ -788,11 +1005,12 @@
 
     button(id) {
       const S = this.S, E = this.engine;
-      const btn = { start: this.btnStart, play: this.btnPlay, reset: this.btnReset, finish: this.btnFinish, 'res-play': this.resPlay, 'res-back': this.resBack, 'res-new': this.resNew }[id];
+      const btn = [...this.studioButtons, this.btnStart, this.btnFinish, this.resPlay, this.resBack, this.resNew, this.resRename, ...this.genreButtons, ...this.nameKeys].find(b => b.userData.id === id);
       if (btn) { btn.userData.press = 1; }
       if (this._lock) return;
+      if (id.startsWith('name-')) return this.nameAction(id.slice(5));
       if (id.startsWith('genre-') && S.phase === 'genres') {
-        if (id === 'genre-back') return this.setPhase('welcome');
+        if (id === 'genre-back') return S.genre ? this.startStudio(S.genre) : this.setPhase('welcome');
         const genre = genreById[id.slice(6)];
         if (genre) return this.startStudio(genre);
       }
@@ -811,8 +1029,18 @@
           }
           if (E.playing) { E.pause(); S.userPaused = true; } else { E.play(); S.userPaused = false; }
           return this.redrawPanels();
+        case 'rotate-left': return this.rotateCarousel(-1);
+        case 'rotate-right': return this.rotateCarousel(1);
+        case 'genres':
+          this.cancelHeld();
+          this.resumeAfterGenres = E.playing;
+          E.pause();
+          if (this.lightMotion) this.lightMotion.dead = true;
+          this.setLightLevel(.55);
+          return this.setPhase('genres');
         case 'reset': return this.reset();
         case 'finish': return this.finish();
+        case 'res-rename': return this.beginNaming('result');
         case 'res-back': return this.backToStudio();
         case 'res-new': return this.newMix();
       }
@@ -828,6 +1056,7 @@
       for (const id of Object.keys(S.assigned)) this.returnInstrument(id);
       this.engine.clear();
       S.userPaused = false;
+      S.name = '';
       this.updateFinish();
       this.redrawPanels();
       if (!silent) this.say('Mezcla vacía. Todos los instrumentos volvieron a su lugar.', '#d7c4ff', 2600);
@@ -841,15 +1070,19 @@
       return `${first} ${last} ${tail}`;
     },
 
-    async finish() {
-      if (this.engine.activeCount() === 0 || this._lock) return;
-      this._lock = true;
+    finish() {
+      if (this.S.phase !== 'studio' || this.engine.activeCount() === 0 || this._lock) return;
       this.cancelHeld();
-      this.S.name = this.makeName();
+      this.beginNaming('studio');
+    },
+
+    async showResult() {
+      this._lock = true;
       await this.fadeTo(0.85, 0.3);
       this.setPhase('result');
       this.resText.userData.canvas.redraw(this.S.name);
       this.updateFinish();
+      if (this.lightMotion) this.lightMotion.dead = true;
       this.setLightLevel(0.75);
       this.engine.play(true);           // reproduce desde el comienzo musical
       this.S.userPaused = false;
@@ -863,7 +1096,7 @@
       await this.fadeTo(0.85, 0.25);
       this.setPhase('studio');
       this.updateFinish();
-      tween(0.6, k => this.setLightLevel(0.75 + 0.25 * k));
+      this.lightMotion = tween(0.6, k => this.setLightLevel(0.75 + 0.25 * k));
       await this.fadeTo(0, 0.3);
       this.say('Tu mezcla sigue cargada. Seguí editándola.', '#c9f7c0', 3000);
       this._lock = false;
@@ -874,7 +1107,7 @@
       await this.fadeTo(0.85, 0.25);
       this.setPhase('studio');
       this.reset(true);
-      tween(0.6, k => this.setLightLevel(0.75 + 0.25 * k));
+      this.lightMotion = tween(0.6, k => this.setLightLevel(0.75 + 0.25 * k));
       await this.fadeTo(0, 0.3);
       this.say('Mezcla nueva: arrastrá un instrumento para empezar.', '#d7c4ff', 3200);
       this._lock = false;
@@ -999,7 +1232,7 @@
         for (const sp of this.speakers) for (const key in sp.userData) if (key.startsWith('cone')) sp.userData[key].scale.setScalar(1 + k * 0.25);
       }
       // botones: hover y pulsación
-      for (const b of [this.btnReset, this.btnPlay, this.btnFinish, this.btnStart, this.resPlay, this.resBack, this.resNew, ...this.genreButtons]) {
+      for (const b of [...this.studioButtons, this.btnFinish, this.btnStart, this.resPlay, this.resBack, this.resNew, this.resRename, ...this.genreButtons, ...this.nameKeys]) {
         if (!b || !b.visible) continue;
         const hov = this.pointers.some(p => p.hover && p.hover.kind === 'button' && p.hover.id === b.userData.id);
         b.userData.hover = THREE.MathUtils.lerp(b.userData.hover, hov ? 1 : 0, 1 - Math.pow(0.0001, dt));

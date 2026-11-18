@@ -28,8 +28,8 @@ para automatizar pruebas. Para hacer clic en un objeto 3D, proyectá su posició
 
 ## Verificación
 
-- `W=1280 H=720 node tools/studio-test.js` prueba el flujo con mouse, el selector de géneros, la asignación libre,
-  el visualizador y la carga de recursos.
+- `W=1280 H=720 node tools/studio-test.js` prueba el flujo con mouse, el carrusel, el cambio de género, la asignación libre,
+  el nombre de la mezcla, el visualizador y la carga de recursos.
 - `W=1672 H=941 node tools/capture.js` captura la bienvenida y el estudio para revisar
   el encuadre contra `estudio-referencia.png`.
 - Pendiente en Meta Quest: agarre y soltado con gatillo y grip, manos translúcidas,

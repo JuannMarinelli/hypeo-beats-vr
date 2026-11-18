@@ -22,6 +22,16 @@
 <body>
     <div id="loading">Cargando estudio…</div>
     <button id="enter-vr" type="button" hidden>Entrar en VR</button>
+    <dialog id="mix-name-dialog" aria-labelledby="mix-name-title">
+        <form id="mix-name-form">
+            <label id="mix-name-title" for="mix-name">Ponele un nombre a tu beat</label>
+            <input id="mix-name" type="text" maxlength="40" autocomplete="off" autofocus>
+            <div class="mix-name-actions">
+                <button type="button" id="mix-name-back">Volver</button>
+                <button type="submit">Guardar nombre</button>
+            </div>
+        </form>
+    </dialog>
     <noscript>HYPEO BEATS necesita JavaScript y WebGL.</noscript>
 
     <a-scene

@@ -63,3 +63,65 @@ a-scene canvas {
 body.in-vr #enter-vr {
     display: none;
 }
+
+#mix-name-dialog {
+    box-sizing: border-box;
+    width: min(420px, calc(100% - 32px));
+    padding: 26px;
+    border: 2px solid #aa65ff;
+    border-radius: 22px;
+    background: #1d102c;
+    color: #fff;
+    box-shadow: 0 0 42px #913eff6b;
+}
+
+#mix-name-dialog::backdrop {
+    background: #09040cbb;
+}
+
+#mix-name-form {
+    display: grid;
+    gap: 16px;
+}
+
+#mix-name-title {
+    font-weight: 800;
+    font-size: 1.2rem;
+}
+
+#mix-name {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #916ac0;
+    border-radius: 8px;
+    background: #12091c;
+    color: #fff;
+    font: 600 1rem "Poppins", Arial, sans-serif;
+}
+
+.mix-name-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.mix-name-actions button {
+    padding: 8px 14px;
+    border: 1px solid #a46ae1;
+    border-radius: 8px;
+    background: #2d1945;
+    color: #fff;
+    cursor: pointer;
+    font: 600 .9rem "Poppins", Arial, sans-serif;
+}
+
+.mix-name-actions button[type="submit"] {
+    background: #7628c8;
+}
+
+#mix-name-form :focus-visible {
+    outline: 2px solid #f4c3ff;
+    outline-offset: 3px;
+}

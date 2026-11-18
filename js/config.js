@@ -36,8 +36,7 @@ HY.LAYOUT = {
   baseVFov: 60,                 // campo visual vertical a 16:9
   stageTop: 1.22,
   consoleCenter: { x: 0, z: 1.43 }, consoleTop: 0.96, consoleRadius: 1.82,
-  propRadius: 1.48, propAngles: [-57, -28, 0, 28, 57],
-  accessoryX: [-0.84, -0.28, 0.28, 0.84], accessoryZ: 1.04, rearBaseLift: 0.11,
+  carousel: { z: 0.53, radius: 0.84, lift: 0.08 },
   characters: [
     { x: -1.83, z: -1.78 }, { x: -0.93, z: -2.02 }, { x: 0, z: -2.1 }, { x: 0.93, z: -2.02 }, { x: 1.83, z: -1.78 }
   ],

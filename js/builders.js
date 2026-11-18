@@ -248,17 +248,19 @@
       ctx.beginPath(); ctx.moveTo(w * 0.24, h * 0.52); ctx.lineTo(w * 0.43, h * 0.7); ctx.lineTo(w * 0.78, h * 0.3); ctx.stroke();
     });
     check.rotation.x = -Math.PI / 2; check.position.y = 0.056; check.visible = false; deck.add(check);
-    const label = B.textPlane(0.34, 0.064, 256, (ctx, w, h) => {
+    const label = B.textPlane(0.34, 0.064, 256, (ctx, w, h, text = cat.label) => {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      B.glowText(ctx, cat.label, w / 2, h / 2, B.font(800, 35), '#ffffff', cat.color, 10);
+      ctx.font = B.font(800, 31);
+      const size = Math.min(31, 31 * w * .93 / ctx.measureText(text).width);
+      B.glowText(ctx, text, w / 2, h / 2, B.font(800, size), '#ffffff', cat.color, 10);
     });
     label.position.set(0, 0.067, 0.245);
     label.rotation.x = -0.32;
     deck.add(label);
     const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.5, 16), new THREE.MeshBasicMaterial({ visible: false }));
     hit.position.y = 0.22; deck.add(hit);
-    return { group: g, ring, pad, check, hit };
+    return { group: g, ring, pad, check, hit, label };
   };
 
   B.buildAccessory = (cat) => {
@@ -297,6 +299,24 @@
         cylinder(radius, radius, .022, ivory, x, y * 1.98, 0);
         cylinder(radius * 1.01, radius * 1.01, .017, dark, x, y * 1.81, 0);
       }
+    } else if (cat.id === 'trumpet') {
+      const trumpetTube = new THREE.CatmullRomCurve3([
+        [-.20, .03], [-.12, .03], [-.11, -.054], [.09, -.054], [.12, .023], [.04, .063], [.14, .063]
+      ].map(([x, y]) => new THREE.Vector3(x, y, 0)));
+      add(new THREE.TubeGeometry(trumpetTube, 36, .017, 12), body, 0, 0, 0);
+      cylinder(.065, .02, .10, body, .16, .063, 0).rotation.z = -Math.PI / 2;
+      cylinder(.056, .056, .005, dark, .208, .063, 0).rotation.z = -Math.PI / 2;
+      for (const x of [-.058, -.007, .044]) {
+        cylinder(.014, .014, .10, body, x, .032, 0);
+        cylinder(.023, .023, .012, ivory, x, .085, 0);
+      }
+      g.rotation.z = -.20;
+    } else if (cat.id === 'cymbal') {
+      cylinder(.013, .019, .13, dark, 0, .065, 0);
+      cylinder(.128, .143, .021, body, 0, .134, 0);
+      cylinder(.048, .078, .035, body, 0, .156, 0);
+      cylinder(.016, .021, .02, dark, 0, .181, 0);
+      g.rotation.x = .20;
     } else if (cat.id === 'brass') {
       const points = [[.086,.2], [.01,.24], [-.052,.208], [-.05,.102], [-.073,-.025], [-.057,-.096], [.025,-.108], [.084,-.056], [.08,.026]];
       const tube = new THREE.CatmullRomCurve3(points.map(([x, y]) => new THREE.Vector3(x, y, 0)));
