@@ -13,8 +13,20 @@ require('fs').mkdirSync(S, { recursive: true });
     await p.goto(process.env.URL || 'http://127.0.0.1:8080/index.html');
     await p.waitForFunction(() => window.__hypeo?.ready && !window.__hypeo.fade.visible, null, { timeout: 90000, polling: 150 });
     await p.screenshot({ path: S + '/welcome.png' });
-    const scr = await p.evaluate(() => { const g = window.__hypeo; const v = new AFRAME.THREE.Vector3(); g.btnStart.getWorldPosition(v); v.project(g.el.camera); return { x: (v.x+1)/2*innerWidth, y: (1-v.y)/2*innerHeight }; });
-    await p.mouse.click(scr.x, scr.y);
+    const click = async id => {
+      const point = await p.evaluate(id => {
+        const g = window.__hypeo;
+        const target = g.targets.find(target => target.id === id && target.kind === 'button');
+        const v = target.meshes[0].getWorldPosition(new AFRAME.THREE.Vector3());
+        v.project(g.el.camera);
+        return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight };
+      }, id);
+      await p.mouse.click(point.x, point.y);
+    };
+    await click('start');
+    await p.waitForFunction(() => window.__hypeo.S.phase === 'genres');
+    await p.screenshot({ path: S + '/genres.png' });
+    await click('genre-reggaeton');
     await p.waitForFunction(() => window.__hypeo.S.phase === 'studio' && window.__hypeo.lightLevel === 1, null, { timeout: 90000, polling: 150 });
     await p.screenshot({ path: S + '/studio.png' });
     console.log(logs.join('\n'));

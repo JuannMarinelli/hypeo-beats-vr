@@ -1,119 +1,94 @@
-/* HYPEO BEATS · motor de audio con reloj musical común (Web Audio)
- *
- * Las cinco pistas son loops de igual duración (4 compases a 120 BPM). Mientras la mezcla
- * suena, TODAS las fuentes corren en paralelo desde el mismo instante del AudioContext y cada
- * pista se abre o se cierra con su propio GainNode. Así la fase entre pistas es siempre exacta:
- * asignar una pista no la "arranca", solo abre su volumen en el próximo tiempo del compás.
- */
+/* HYPEO BEATS · reloj común, con entradas cuantizadas a la negra y mezcla por instrumento. */
 (function () {
-  const M = HY.MUSIC;
-
   class MixEngine {
-    constructor(categories) {
-      this.cats = categories;
+    constructor() {
       this.ctx = null;
-      this.buffers = {};          // id -> AudioBuffer
-      this.failed = {};           // id -> mensaje de error
-      this.raw = {};              // id -> Promise<ArrayBuffer>
-      this.sources = {};
-      this.gains = {};
-      this.active = {};           // id -> bool (pista asignada)
-      this.audibleAt = {};        // id -> tiempo de contexto en que empieza a sonar
+      this.cache = new Map();
+      this.tracks = new Map();
       this.playing = false;
-      this.t0 = 0;                // tiempo de contexto que corresponde a la posición musical 0
-      this.pausedAt = 0;          // posición musical guardada en pausa
-      this.listeners = [];
-      this.freq = null;
+      this.t0 = 0;
+      this.pausedAt = 0;
+      this.setGenre(HY.GENRES[0]);
     }
 
-    /** Descarga los archivos antes de la interacción (no necesita AudioContext). */
-    prefetch() {
-      for (const c of this.cats) {
-        if (this.raw[c.id]) continue;
-        this.raw[c.id] = fetch(c.track).then(r => {
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          return r.arrayBuffer();
-        });
-        this.raw[c.id].catch(() => {});
-      }
+    setGenre(genre) {
+      this.clear();
+      this.cache.clear();
+      this.genre = genre;
+      this.beat = 60 / genre.bpm;
+      this.bar = this.beat * HY.MUSIC.beatsPerBar;
+      this.loop = this.bar * HY.MUSIC.bars;
     }
 
-    /** Debe llamarse desde un gesto del usuario (botón PLAY de la bienvenida). */
+    /** Llamar desde el gesto que abre el selector de géneros o desde el botón de VR. */
     async unlock() {
       if (!this.ctx) {
         const AC = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AC({ latencyHint: 'interactive' });
         const ctx = this.ctx;
-        this.master = ctx.createGain(); this.master.gain.value = 0.0;
-        this.bus = ctx.createGain(); this.bus.gain.value = 0.62;         // margen para las 5 juntas
-        this.comp = ctx.createDynamicsCompressor();
-        this.comp.threshold.value = -10; this.comp.knee.value = 8; this.comp.ratio.value = 3;
-        this.comp.attack.value = 0.005; this.comp.release.value = 0.2;
-        this.analyser = ctx.createAnalyser(); this.analyser.fftSize = 256; this.analyser.smoothingTimeConstant = 0.72;
+        this.bus = ctx.createGain();
+        this.bus.gain.value = 0.65;
+        const comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -10;
+        comp.knee.value = 8;
+        comp.ratio.value = 3;
+        this.analyser = ctx.createAnalyser();
+        this.analyser.fftSize = 256;
         this.freq = new Uint8Array(this.analyser.frequencyBinCount);
-        this.bus.connect(this.master); this.master.connect(this.comp); this.comp.connect(this.analyser);
+        this.bus.connect(comp);
+        comp.connect(this.analyser);
         this.analyser.connect(ctx.destination);
-        for (const c of this.cats) {
-          const g = ctx.createGain(); g.gain.value = 0; g.connect(this.bus); this.gains[c.id] = g;
-        }
       }
-      if (this.ctx.state !== 'running') { try { await this.ctx.resume(); } catch (e) { /* se reintenta en el próximo gesto */ } }
-      return this.ctx;
+      if (this.ctx.state !== 'running') {
+        try { await this.ctx.resume(); } catch (_) { /* se reintenta en el próximo gesto */ }
+      }
     }
 
-    async load() {
-      this.prefetch();
-      await Promise.all(this.cats.map(async c => {
-        if (this.buffers[c.id]) return;
-        try {
-          const ab = await this.raw[c.id];
-          const buf = await this.ctx.decodeAudioData(ab.slice(0));
-          this.buffers[c.id] = buf;
-          delete this.failed[c.id];
-        } catch (e) {
-          this.failed[c.id] = (e && e.message) || 'error de carga';
-          console.warn('[HYPEO] no cargó la pista', c.id, e);
-        }
-      }));
-      return { loaded: Object.keys(this.buffers), failed: Object.keys(this.failed) };
-    }
-
-    isLoaded(id) { return !!this.buffers[id]; }
-
-    /** Posición musical actual dentro del loop, en segundos. */
     get position() {
-      if (!this.ctx) return 0;
       if (!this.playing) return this.pausedAt;
-      const p = (this.ctx.currentTime - this.t0) % M.loop;
-      return p < 0 ? p + M.loop : p;
-    }
-    get now() { return this.ctx ? this.ctx.currentTime : 0; }
-
-    _startSources(offset) {
-      const ctx = this.ctx;
-      const when = ctx.currentTime + 0.06;
-      for (const c of this.cats) {
-        const buf = this.buffers[c.id]; if (!buf) continue;
-        const s = ctx.createBufferSource();
-        s.buffer = buf; s.loop = true;
-        s.loopStart = 0; s.loopEnd = Math.min(M.loop, buf.duration);   // ignora relleno del códec
-        s.connect(this.gains[c.id]);
-        s.start(when, offset % M.loop);
-        this.sources[c.id] = s;
-      }
-      this.t0 = when - offset;
-      const mg = this.master.gain;
-      mg.cancelScheduledValues(ctx.currentTime);
-      mg.setValueAtTime(0, when); mg.linearRampToValueAtTime(1, when + 0.03);
-      return when;
+      return Math.max(0, this.ctx.currentTime - this.t0) % this.loop;
     }
 
-    _stopSources(at) {
-      for (const id in this.sources) {
-        try { this.sources[id].stop(at); } catch (e) { /* ya detenida */ }
-        const s = this.sources[id]; setTimeout(() => { try { s.disconnect(); } catch (e) {} }, 400);
+    bufferFor(id, player) {
+      const key = id + '/' + player;
+      if (this.cache.has(key)) return this.cache.get(key);
+      const buffer = HY.renderTrack(this.ctx, this.genre, id, player);
+      if (this.cache.size >= 14) this.cache.delete(this.cache.keys().next().value);
+      this.cache.set(key, buffer);
+      return buffer;
+    }
+
+    startTrack(id, track, when) {
+      const source = this.ctx.createBufferSource();
+      const gain = this.ctx.createGain();
+      source.buffer = this.bufferFor(id, track.player);
+      source.loop = true;
+      source.connect(gain);
+      gain.connect(this.bus);
+      source.onended = () => { source.disconnect(); gain.disconnect(); };
+
+      // Algunas duraciones ideales caen entre dos muestras; ajustá el buffer al reloj.
+      source.playbackRate.value = source.buffer.duration / this.loop;
+      const offset = Math.max(0, when - this.t0) % this.loop * source.playbackRate.value;
+      source.start(when, offset);
+      gain.gain.setValueAtTime(0, when);
+      gain.gain.linearRampToValueAtTime(1, when + .02);
+      Object.assign(track, { source, gain, when });
+    }
+
+    stopTrack(track, at) {
+      if (!track.source) return;
+      const gain = track.gain.gain;
+      if (track.when <= at) {
+        const open = Math.min(1, (at - track.when) / .02);
+        gain.cancelScheduledValues(at);
+        gain.setValueAtTime(open, at);
+        gain.linearRampToValueAtTime(0, at + .035);
+        track.source.stop(at + .04);
+      } else {
+        track.source.stop(at);
       }
-      this.sources = {};
+      track.source = null;
     }
 
     play(fromStart = false) {
@@ -121,84 +96,69 @@
       if (this.playing && !fromStart) return true;
       if (this.playing) this.pause();
       if (fromStart) this.pausedAt = 0;
-      const when = this._startSources(this.pausedAt);
-      for (const id in this.active) if (this.active[id]) {
-        const g = this.gains[id].gain;
-        g.cancelScheduledValues(this.ctx.currentTime); g.setValueAtTime(1, this.ctx.currentTime);
-        this.audibleAt[id] = when;
-      }
+      for (const [id, track] of this.tracks) this.bufferFor(id, track.player);
+      const when = this.ctx.currentTime + .06;
+      this.t0 = when - this.pausedAt;
+      for (const [id, track] of this.tracks) this.startTrack(id, track, when);
       this.playing = true;
-      this._emit();
       return true;
     }
 
     pause() {
       if (!this.playing) return;
-      const ctx = this.ctx, now = ctx.currentTime;
       this.pausedAt = this.position;
-      const mg = this.master.gain;
-      mg.cancelScheduledValues(now); mg.setValueAtTime(mg.value, now); mg.linearRampToValueAtTime(0, now + 0.04);
-      this._stopSources(now + 0.05);
+      for (const track of this.tracks.values()) this.stopTrack(track, this.ctx.currentTime);
       this.playing = false;
-      this._emit();
     }
 
-    /** Próximo tiempo (negra) del reloj musical, en tiempo de contexto. */
-    nextBeatTime(margin = 0.03) {
-      const t = this.ctx.currentTime + margin;
-      const k = Math.ceil((t - this.t0) / M.beat - 1e-6);
-      return this.t0 + k * M.beat;
+    nextBeatTime() {
+      const relativeTime = this.ctx.currentTime + .04 - this.t0;
+      return this.t0 + Math.ceil(relativeTime / this.beat) * this.beat;
     }
 
-    /** Activa o desactiva una pista. Si suena, entra en el próximo tiempo, en fase. */
-    setTrack(id, on) {
-      this.active[id] = !!on;
-      if (!this.ctx || !this.gains[id]) return null;
-      const g = this.gains[id].gain, now = this.ctx.currentTime;
-      if (!this.playing) {
-        g.cancelScheduledValues(now); g.setValueAtTime(on ? 1 : 0, now);
-        this.audibleAt[id] = on ? Infinity : undefined;
-        this._emit(); return null;
+    setTrack(id, player) {
+      const previous = this.tracks.get(id);
+      if (player == null) {
+        if (previous?.source) this.stopTrack(previous, this.ctx.currentTime);
+        this.tracks.delete(id);
+        return;
       }
-      const at = on ? this.nextBeatTime() : now + 0.01;
-      g.cancelScheduledValues(now);
-      g.setValueAtTime(g.value, now);
-      g.setValueAtTime(g.value, at);
-      g.linearRampToValueAtTime(on ? 1 : 0, at + (on ? 0.02 : 0.08));
-      this.audibleAt[id] = on ? at : undefined;
-      this._emit();
-      return at;
+      this.bufferFor(id, player);
+      const track = { player, source: null };
+      this.tracks.set(id, track);
+      if (!this.playing) return;
+      const when = this.nextBeatTime();
+      if (previous) this.stopTrack(previous, when);
+      this.startTrack(id, track, when);
     }
 
     clear() {
-      for (const c of this.cats) this.setTrack(c.id, false);
       this.pause();
+      this.tracks.clear();
       this.pausedAt = 0;
     }
 
-    /** true si la pista está asignada, la mezcla suena y ya pasó su punto de entrada. */
     isAudible(id) {
-      return this.playing && this.active[id] && this.audibleAt[id] !== undefined && this.ctx.currentTime >= this.audibleAt[id];
+      const track = this.tracks.get(id);
+      return this.playing && !!track?.source && this.ctx.currentTime >= track.when;
     }
-    activeCount() { return this.cats.filter(c => this.active[c.id]).length; }
+
+    activeCount() { return this.tracks.size; }
 
     /** Niveles 0..1 para el visualizador (n bandas). */
-    levels(n, out) {
-      out = out || new Float32Array(n);
+    levels(n, out = new Float32Array(n)) {
       if (!this.analyser || !this.playing) { out.fill(0); return out; }
       this.analyser.getByteFrequencyData(this.freq);
       const bins = this.freq.length;
       for (let i = 0; i < n; i++) {
-        // escala casi logarítmica sobre las bandas útiles
-        const a = Math.floor(Math.pow(i / n, 1.6) * bins * 0.8), b = Math.max(a + 1, Math.floor(Math.pow((i + 1) / n, 1.6) * bins * 0.8));
-        let s = 0; for (let k = a; k < b; k++) s += this.freq[k];
-        out[i] = s / (b - a) / 255;
+        const a = Math.floor(Math.pow(i / n, 1.6) * bins * 0.8);
+        const b = Math.max(a + 1, Math.floor(Math.pow((i + 1) / n, 1.6) * bins * 0.8));
+        let sum = 0;
+        for (let k = a; k < b; k++) sum += this.freq[k];
+        out[i] = sum / (b - a) / 255;
       }
       return out;
     }
-
-    onChange(fn) { this.listeners.push(fn); }
-    _emit() { for (const fn of this.listeners) fn(this); }
   }
 
   HY.MixEngine = MixEngine;

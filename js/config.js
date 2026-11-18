@@ -1,27 +1,26 @@
 /* HYPEO BEATS · configuración compartida */
 window.HY = window.HY || {};
 
-HY.MUSIC = {
-  bpm: 120,
-  beatsPerBar: 4,
-  bars: 4,
-  get beat() { return 60 / this.bpm; },
-  get bar() { return this.beat * this.beatsPerBar; },
-  get loop() { return this.bar * this.bars; } // 8,0 s
-};
+HY.MUSIC = { beatsPerBar: 4, bars: 4 };
 
-// Orden de izquierda a derecha, como en la referencia.
-HY.CATEGORIES = [
+// El orden determina qué variante rítmica toca cada personaje.
+HY.CHARACTERS = ['beats', 'bass', 'melody', 'vocals', 'fx'];
+
+HY.INSTRUMENTS = [
   { id: 'beats',  label: 'BEATS',  color: '#7a4dff', glow: '#a77bff', prop: 'prop_beats',  propName: 'el tambor',
-    track: 'assets/audio/beats.wav',  word: ['Thunder', 'Pulse', 'Drum'] },
+    word: ['Thunder', 'Pulse', 'Drum'] },
   { id: 'bass',   label: 'BASS',   color: '#ff4fc0', glow: '#ff8ad6', prop: 'prop_bass',   propName: 'la nota',
-    track: 'assets/audio/bass.wav',   word: ['Deep', 'Pink', 'Low'] },
+    word: ['Deep', 'Pink', 'Low'] },
   { id: 'melody', label: 'MELODY', color: '#ffb52e', glow: '#ffd27a', prop: 'prop_melody', propName: 'el teclado',
-    track: 'assets/audio/melody.wav', word: ['Golden', 'Sunny', 'Keys'] },
+    word: ['Golden', 'Sunny', 'Keys'] },
   { id: 'vocals', label: 'VOCALS', color: '#3fc0ff', glow: '#8fdcff', prop: 'prop_vocals', propName: 'el micrófono',
-    track: 'assets/audio/vocals.wav', word: ['Echo', 'Blue', 'Voice'] },
+    word: ['Echo', 'Blue', 'Voice'] },
   { id: 'fx',     label: 'FX',     color: '#4fd23c', glow: '#93f07f', prop: 'prop_fx',     propName: 'la estrella',
-    track: 'assets/audio/fx.wav',     word: ['Cosmic', 'Star', 'Glitch'] }
+    word: ['Cosmic', 'Star', 'Glitch'] },
+  { id: 'guitar', label: 'GUITARRA', color: '#ff6f52', glow: '#ffb393', propName: 'la guitarra', word: ['Strings', 'Amber', 'Riff'] },
+  { id: 'percussion', label: 'PERCUSIÓN', color: '#27deab', glow: '#9af4db', propName: 'la percusión', word: ['Tumbao', 'Jade', 'Hands'] },
+  { id: 'brass', label: 'SAXO', color: '#e2c247', glow: '#f6e68a', propName: 'el saxo', word: ['Brass', 'Honey', 'Reed'] },
+  { id: 'synth', label: 'SINTE', color: '#c36aff', glow: '#e1b5ff', propName: 'el sintetizador', word: ['Neon', 'Space', 'Analog'] }
 ];
 
 HY.COLORS = {
@@ -37,7 +36,8 @@ HY.LAYOUT = {
   baseVFov: 60,                 // campo visual vertical a 16:9
   stageTop: 1.22,
   consoleCenter: { x: 0, z: 1.43 }, consoleTop: 0.96, consoleRadius: 1.82,
-  propRadius: 1.38, propAngles: [-62, -32, 0, 32, 62],
+  propRadius: 1.48, propAngles: [-57, -28, 0, 28, 57],
+  accessoryX: [-0.84, -0.28, 0.28, 0.84], accessoryZ: 1.04, rearBaseLift: 0.11,
   characters: [
     { x: -1.83, z: -1.78 }, { x: -0.93, z: -2.02 }, { x: 0, z: -2.1 }, { x: 0.93, z: -2.02 }, { x: 1.83, z: -1.78 }
   ],

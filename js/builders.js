@@ -187,7 +187,7 @@
     return g;
   };
 
-  B.buildPedestal = (cat, pos, faceYaw) => {
+  B.buildPedestal = (pos, faceYaw) => {
     const g = new THREE.Group(); g.position.set(pos.x, L.stageTop, pos.z); g.rotation.y = faceYaw;
     const h = L.pedestalTop - L.stageTop;
     const satin = B.mat('#0e0a13', { roughness: 0.32, metalness: 0.3 });
@@ -199,24 +199,13 @@
     const ring = B.neonTorus(0.535, 0.014, C.coral, Math.PI * 2, 1.15, 3.6, 0.16);
     ring.rotation.x = Math.PI / 2; ring.position.y = 0.085; g.add(ring);
     const shadow = B.contactShadow(0.9, 0.85); shadow.position.y = 0.004; g.add(shadow);
-    // placa frontal legible
-    const plate = new THREE.Group(); plate.position.set(0, h - 0.13, 0.43); plate.rotation.x = -0.12; g.add(plate);
-    const plateBody = new THREE.Mesh(B.roundedBox(0.56, 0.16, 0.05, 0.035, 0.01), B.mat('#16121c', { roughness: 0.35, metalness: 0.2 }));
-    plate.add(plateBody);
-    const label = B.textPlane(0.52, 0.13, 512, (ctx, w, hh, on) => {
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      B.glowText(ctx, cat.label, w / 2, hh / 2 + 4, B.font(800, 84), on ? '#ffffff' : '#e9e2f5', on ? cat.color : null, 26);
-    });
-    label.position.z = 0.027; plate.add(label);
-    const plateGlow = B.neonFrame(0.58, 0.18, 0.045, 0.008, cat.color, 1.3);
-    plateGlow.position.z = 0.02; plateGlow.visible = false; plate.add(plateGlow);
     // zona de interacción ampliada: cuerpo del personaje + pedestal
     const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 2.0, 16), new THREE.MeshBasicMaterial({ visible: false }));
     hit.position.y = 1.0; g.add(hit);
     // disco de destino válido
-    const target = new THREE.Mesh(new THREE.RingGeometry(0.56, 0.72, 64), B.halo(cat.glow, 0.0));
+    const target = new THREE.Mesh(new THREE.RingGeometry(0.56, 0.72, 64), B.halo(C.lilac, 0.0));
     target.rotation.x = -Math.PI / 2; target.position.y = 0.01; g.add(target);
-    return { group: g, ring, label, plateGlow, plateBody, hit, target, top: h };
+    return { group: g, ring, hit, target, top: h };
   };
 
   // ------------------------------------------------------------ consola
@@ -240,13 +229,17 @@
     return g;
   };
 
-  B.buildPropBase = (cat) => {
+  B.buildPropBase = (cat, lift) => {
     const g = new THREE.Group();
+    const deck = new THREE.Group();
+    deck.position.y = lift;
+    g.add(deck);
     const satin = B.mat('#14101c', { roughness: 0.3, metalness: 0.35 });
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.25, 0.05, 64), satin); base.position.y = 0.025; g.add(base);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.25, lift + 0.05, 64), satin);
+    base.position.y = (lift + 0.05) / 2; g.add(base);
     const ring = B.neonTorus(0.245, 0.01, C.blue, Math.PI * 2, 1.3, 3.6, 0.22);
-    ring.rotation.x = Math.PI / 2; ring.position.y = 0.05; g.add(ring);
-    const pad = new THREE.Mesh(new THREE.CircleGeometry(0.2, 48), B.halo('#6d5cff', 0.12)); pad.rotation.x = -Math.PI / 2; pad.position.y = 0.052; g.add(pad);
+    ring.rotation.x = Math.PI / 2; ring.position.y = 0.05; deck.add(ring);
+    const pad = new THREE.Mesh(new THREE.CircleGeometry(0.2, 48), B.halo('#6d5cff', 0.12)); pad.rotation.x = -Math.PI / 2; pad.position.y = 0.052; deck.add(pad);
     const shadow = B.contactShadow(0.34, 0.8); shadow.position.y = 0.002; g.add(shadow);
     // indicador "en el mix": un tilde en el color de la categoría
     const check = B.textPlane(0.16, 0.16, 128, (ctx, w, h) => {
@@ -254,10 +247,73 @@
       ctx.shadowColor = cat.color; ctx.shadowBlur = 16;
       ctx.beginPath(); ctx.moveTo(w * 0.24, h * 0.52); ctx.lineTo(w * 0.43, h * 0.7); ctx.lineTo(w * 0.78, h * 0.3); ctx.stroke();
     });
-    check.rotation.x = -Math.PI / 2; check.position.y = 0.056; check.visible = false; g.add(check);
+    check.rotation.x = -Math.PI / 2; check.position.y = 0.056; check.visible = false; deck.add(check);
+    const label = B.textPlane(0.34, 0.064, 256, (ctx, w, h) => {
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      B.glowText(ctx, cat.label, w / 2, h / 2, B.font(800, 35), '#ffffff', cat.color, 10);
+    });
+    label.position.set(0, 0.067, 0.245);
+    label.rotation.x = -0.32;
+    deck.add(label);
     const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.5, 16), new THREE.MeshBasicMaterial({ visible: false }));
-    hit.position.y = 0.22; g.add(hit);
+    hit.position.y = 0.22; deck.add(hit);
     return { group: g, ring, pad, check, hit };
+  };
+
+  B.buildAccessory = (cat) => {
+    const g = new THREE.Group();
+    const body = B.mat(cat.color, { roughness: 0.28, metalness: 0.4 });
+    const dark = B.mat('#25172f');
+    const ivory = B.mat('#f6e8d2');
+    const add = (geometry, material, x, y, z) => {
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(x, y, z);
+      g.add(mesh);
+      return mesh;
+    };
+    const box = (w, h, d, mat, x, y, z) => add(new THREE.BoxGeometry(w, h, d), mat, x, y, z);
+    const cylinder = (top, bottom, h, mat, x, y, z) =>
+      add(new THREE.CylinderGeometry(top, bottom, h, 24), mat, x, y, z);
+    if (cat.id === 'guitar') {
+      const shape = new THREE.Shape();
+      shape.moveTo(0, -.145);
+      shape.bezierCurveTo(.15, -.15, .16, -.045, .1, .005);
+      shape.bezierCurveTo(.05, .046, .135, .09, .07, .136);
+      shape.bezierCurveTo(.033, .162, -.033, .162, -.07, .136);
+      shape.bezierCurveTo(-.135, .09, -.05, .046, -.1, .005);
+      shape.bezierCurveTo(-.16, -.045, -.15, -.15, 0, -.145);
+      add(new THREE.ExtrudeGeometry(shape, { depth: .05, bevelSize: .009, bevelThickness: .007, bevelSegments: 2 }), body, 0, 0, 0);
+      add(new THREE.CircleGeometry(.033, 24), dark, 0, .025, .059);
+      box(.044, .20, .032, dark, 0, .194, .041);
+      box(.066, .06, .04, body, 0, .316, .031);
+      box(.07, .023, .02, dark, 0, -.07, .058);
+      for (const x of [-.015, -.005, .005, .015]) box(.002, .386, .003, ivory, x, .117, .067);
+      g.rotation.z = -.68;
+      g.scale.setScalar(.76);
+    } else if (cat.id === 'percussion') {
+      for (const [x, y, radius] of [[-.09, .13, .09], [.09, .105, .077]]) {
+        cylinder(radius * .96, radius * .62, y * 1.9, body, x, y, 0);
+        cylinder(radius, radius, .022, ivory, x, y * 1.98, 0);
+        cylinder(radius * 1.01, radius * 1.01, .017, dark, x, y * 1.81, 0);
+      }
+    } else if (cat.id === 'brass') {
+      const points = [[.086,.2], [.01,.24], [-.052,.208], [-.05,.102], [-.073,-.025], [-.057,-.096], [.025,-.108], [.084,-.056], [.08,.026]];
+      const tube = new THREE.CatmullRomCurve3(points.map(([x, y]) => new THREE.Vector3(x, y, 0)));
+      add(new THREE.TubeGeometry(tube, 30, .022, 10), body, 0, 0, 0);
+      cylinder(.063, .027, .083, body, .08, .05, 0).rotation.z = -.15;
+      cylinder(.051, .051, .004, dark, .086, .092, 0).rotation.z = -.15;
+      for (const y of [.15, .105, .06, .015]) add(new THREE.SphereGeometry(.014, 10, 8), ivory, -.055, y, .022);
+      box(.064, .025, .035, dark, .112, .19, 0).rotation.z = -.38;
+    } else {
+      box(.34, .18, .09, body, 0, .09, 0);
+      box(.32, .16, .008, dark, 0, .09, .047);
+      add(new THREE.BoxGeometry(.15, .037, .008), B.mat('#64ffd4', { emissive: '#1e916f' }), -.053, .133, .052);
+      for (const x of [.062, .11]) add(new THREE.CylinderGeometry(.017, .017, .013, 14), ivory, x, .13, .052).rotation.x = Math.PI / 2;
+      for (let i = 0; i < 9; i++) box(.026, .052, .009, ivory, -.12 + i * .03, .047, .054);
+      g.rotation.x = -.25;
+    }
+    return g;
   };
 
   // ------------------------------------------------------------ pantallas laterales

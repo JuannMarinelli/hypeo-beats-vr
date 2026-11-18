@@ -4,7 +4,7 @@ Leé primero `README.md` (estructura, controles, Blender/Mixamo, pendientes).
 
 ## Objetivo del proyecto
 Experiencia musical 3D jugable en navegador y VR (A-Frame 1.6, HTML/CSS/JS estático, sin build).
-Recorrido: bienvenida → estudio (llevar cada instrumento a su personaje) → "YOU JUST CREATED YOUR HYPEO BEAT!".
+Recorrido: bienvenida → selección de género → estudio (llevar cualquier instrumento a cualquier personaje) → "YOU JUST CREATED YOUR HYPEO BEAT!".
 Referencia visual del estudio: `estudio-referencia.png` (1672×941). Hoja de personajes: ver README.
 
 ## Reglas
@@ -12,7 +12,7 @@ Referencia visual del estudio: `estudio-referencia.png` (1672×941). Hoja de per
 - No modificar los `.glb` a mano: se regeneran con `blender/hypeo_characters.py`
   (`pip install bpy` en Python 3.13 funciona sin Blender instalado:
   `python -c "import sys; sys.argv=['x','--','--out','assets/models']; exec(open('blender/hypeo_characters.py').read())"`).
-- Audio: `python3 tools/make_audio.py assets/audio` (numpy). Todos los loops: 120 BPM, 4/4, 4 compases = 8,000 s.
+- Audio: `js/genre-music.js` genera loops de 4 compases en 4/4 al BPM de cada género. `tools/make_audio.py` regenera los WAV de la versión original.
 - Pedido explícito del usuario: los personajes **sin instrumento quedan quietos**; con instrumento bailan **al ritmo del beat**
   (clip `Dance` de 1 compás, tiempo calculado desde `engine.position` en `script.js` → `tick`).
 - Textos de la interfaz en español rioplatense (vos), salvo los rótulos del diseño (PLAY, RESET, FINISH MIX, BEATS…).
@@ -22,13 +22,13 @@ Referencia visual del estudio: `estudio-referencia.png` (1672×941). Hoja de per
 python3 -m http.server 8080          # http://127.0.0.1:8080 (local)
 W=1672 H=941 OUT=captures node tools/capture.js   # requiere playwright; guarda welcome.png y studio.png
 ```
-`window.__hypeo` expone el componente del juego (estado `S`, `engine`, `bases`, `chars`, `button(id)`, `assign(id, from)`)
+`window.__hypeo` expone el componente del juego (estado `S`, `engine`, `bases`, `chars`, `button(id)`, `assign(id, from, charId)`)
 para automatizar pruebas. Para hacer clic en un objeto 3D, proyectá su posición con `.project(__hypeo.el.camera)`
 (ver `tools/capture.js`).
 
 ## Verificación
 
-- `W=1280 H=720 node tools/studio-test.js` prueba el flujo con mouse, las cinco pistas,
+- `W=1280 H=720 node tools/studio-test.js` prueba el flujo con mouse, el selector de géneros, la asignación libre,
   el visualizador y la carga de recursos.
 - `W=1672 H=941 node tools/capture.js` captura la bienvenida y el estudio para revisar
   el encuadre contra `estudio-referencia.png`.

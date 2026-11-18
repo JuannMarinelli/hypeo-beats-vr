@@ -1,7 +1,8 @@
 # HYPEO BEATS · estudio musical 3D / VR
 
-Experiencia web (A-Frame 1.6, HTML/CSS/JS estático): bienvenida → estudio → "Tu creación".
-El usuario arrastra cada instrumento hasta su personaje (BEATS, BASS, MELODY, VOCALS, FX) y arma una mezcla sincronizada.
+Experiencia web (A-Frame 1.6, HTML/CSS/JS estático): bienvenida → selección de género → estudio → "Tu creación".
+Tocá **JUGAR** y elegí Reggaeton, Trap, R&B, Detroit, Dembow, Drill, Rkt, House, Bachata, Guaracha o Jazz. Cada género tiene su propio tempo, armonía y sonidos.
+Arrastrá cualquiera de los nueve instrumentos a cualquiera de los cinco personajes. Cada personaje toca una variante rítmica distinta. Podés reemplazar el instrumento de un personaje sin detener la mezcla.
 
 ## Ejecutar en local
 
@@ -13,7 +14,7 @@ Abrir http://localhost:8080/ (URL **local**). No hay dependencias remotas: A-Fra
 
 ## Controles
 
-- **Mouse**: arrastrar un instrumento flotante y soltarlo sobre su personaje, o clic en el instrumento + clic en el personaje.
+- **Mouse**: arrastrar un instrumento flotante y soltarlo sobre cualquier personaje, o clic en el instrumento + clic en el personaje.
   Clic en un personaje/pedestal asignado = quitar la pista. Botones 3D: PLAY/PAUSE, RESET, FINISH MIX (aparece con ≥1 pista).
 - **VR**: botón "Entrar en VR" (solo si el navegador soporta `immersive-vr`). Rayo del mando + gatillo o grip para agarrar/soltar y para los botones.
 
@@ -23,20 +24,21 @@ Abrir http://localhost:8080/ (URL **local**). No hay dependencias remotas: A-Fra
 | --- | --- |
 | `index.html`, `style.css` | Escena A-Frame (rig en y=0, cámara a 1,6 m, mandos con `laser-controls`) |
 | `script.js` | Lógica del juego: estados, interacción mouse/VR, animación sincronizada, flujo bienvenida/estudio/resultado |
-| `js/config.js` | Categorías, colores, BPM, layout (posiciones de cámara, personajes, consola) |
-| `js/audio-engine.js` | Web Audio: reloj musical común, 5 loops en fase, ganancias por pista, analizador para el visualizador |
+| `js/config.js` | Instrumentos, colores y posiciones de cámara, personajes y consola |
+| `js/genre-music.js` | Sintetiza loops de cuatro compases por género, instrumento y personaje |
+| `js/audio-engine.js` | Web Audio: reloj musical común, loops en fase, ganancias por pista, analizador para el visualizador |
 | `js/builders.js` | Geometría 3D: sala, escenario, pedestales, consola, pantallas, botones, parlantes, mano VR |
 | `assets/models/*.glb` | Personajes (rig con nombres Mixamo + clips `Idle` y `Dance`), `props.glb` (instrumentos), `logo.glb` |
 | `assets/models/*_tpose.fbx` | Mallas en T-pose sin rig, para subir a Mixamo |
-| `assets/audio/*.wav` | 5 loops propios: 120 BPM, 4/4, 4 compases (8,000 s), La menor (Am–F–C–G) |
+| `assets/audio/*.wav` | Loops de la versión original |
 | `blender/hypeo_characters.py` | Genera todos los modelos desde Blender (bpy) |
-| `tools/make_audio.py` | Genera los 5 loops (numpy) |
+| `tools/make_audio.py` | Genera los loops de la versión original (numpy) |
 
 ## Personajes: comportamiento
 
 - Sin instrumento: **quietos** (clip `Idle`, pose fija).
 - Con instrumento y la mezcla sonando: clip `Dance` (1 compás) cuyo tiempo se calcula a partir de la posición del reloj de audio → baila **en fase con el beat**.
-- Asignado pero en pausa: aro y placa iluminados, sin movimiento.
+- Asignado pero en pausa: aro iluminado, sin movimiento.
 
 ## Regenerar modelos con Blender (y Mixamo)
 
@@ -61,7 +63,9 @@ también alcanza con correr el script anterior en modo batch.
 Los esqueletos de este proyecto ya usan los nombres `mixamorig:*`, así que una animación de Mixamo descargada "Without Skin" se puede aplicar al mismo rig.
 En `script.js` (`mountCharacter`) se buscan los clips por nombre (`Idle`, `Dance`): renombrar la acción importada o ajustar ese código.
 
-## Regenerar audio
+## Regenerar los archivos de audio originales
+
+El estudio actual genera sus loops en el navegador con `js/genre-music.js`.
 
 ```bash
 python3 tools/make_audio.py assets/audio

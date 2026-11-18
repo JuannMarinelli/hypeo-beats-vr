@@ -1,10 +1,11 @@
 /* HYPEO BEATS · lógica del juego
- * Bienvenida → estudio (arrastrar/soltar o clic+clic, mouse o mando VR) → resultado.
+ * Bienvenida → géneros → estudio (arrastrar/soltar o clic+clic, mouse o mando VR) → resultado.
  */
 (function () {
   const THREE = AFRAME.THREE;
-  const { CATEGORIES: CATS, LAYOUT: L, MUSIC: M, COLORS: C, B } = HY;
-  const byId = Object.fromEntries(CATS.map(c => [c.id, c]));
+  const { CHARACTERS, INSTRUMENTS, GENRES, LAYOUT: L, COLORS: C, B } = HY;
+  const byId = Object.fromEntries(INSTRUMENTS.map(instrument => [instrument.id, instrument]));
+  const genreById = Object.fromEntries(GENRES.map(genre => [genre.id, genre]));
   const ease = { out: t => 1 - Math.pow(1 - t, 3), inOut: t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
     back: t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); } };
 
@@ -40,9 +41,8 @@
 
   AFRAME.registerComponent('hypeo-game', {
     init() {
-      this.engine = new HY.MixEngine(CATS);
-      this.engine.prefetch();
-      this.S = { phase: 'loading', assigned: {}, busy: {}, held: null, userPaused: false, name: '' };
+      this.engine = new HY.MixEngine();
+      this.S = { phase: 'loading', genre: null, assigned: {}, busy: {}, held: null, userPaused: false, name: '' };
       this.targets = [];
       this.pointers = [];
       this.levels = new Float32Array(28);
@@ -65,10 +65,12 @@
       this.studio = new THREE.Group(); this.studio.name = 'studio';
       this.welcome = new THREE.Group(); this.welcome.name = 'welcome';
       this.result = new THREE.Group(); this.result.name = 'result';
-      sc.object3D.add(this.studio, this.welcome, this.result);
+      this.genreMenu = new THREE.Group(); this.genreMenu.name = 'genres';
+      sc.object3D.add(this.studio, this.welcome, this.genreMenu, this.result);
       this.buildLights();
       this.buildStudio();
       this.buildWelcome();
+      this.buildGenreMenu();
       this.buildResult();
       this.buildFade();
       this.setupPointers();
@@ -82,13 +84,13 @@
 
       // modelos 3D (exportados desde Blender)
       const [chars, props, logo] = await Promise.all([
-        Promise.all(CATS.map(c => loadGLB(`assets/models/${c.id}.glb`).catch(e => ({ error: e })))),
+        Promise.all(CHARACTERS.map(id => loadGLB(`assets/models/${id}.glb`).catch(e => ({ error: e })))),
         loadGLB('assets/models/props.glb'),
         loadGLB('assets/models/logo.glb')
       ]);
       this.mountLogo(logo);
       this.mountProps(props);
-      chars.forEach((g, i) => this.mountCharacter(CATS[i], g));
+      chars.forEach((g, i) => this.mountCharacter(CHARACTERS[i], g));
       this.setPhase('welcome');
       this.ready = true;
       document.body.classList.add('ready');
@@ -140,20 +142,24 @@
       B.buildConsole(root);
       const cam = { x: L.rig.x, z: L.rig.z };
       this.chars = {}; this.bases = {};
-      CATS.forEach((cat, i) => {
+      CHARACTERS.forEach((id, i) => {
         const p = L.characters[i];
         const yaw = Math.atan2(cam.x - p.x, cam.z - p.z);
-        const ped = B.buildPedestal(cat, p, yaw);
+        const ped = B.buildPedestal(p, yaw);
         root.add(ped.group);
-        this.chars[cat.id] = Object.assign(ped, { cat, yaw, hover: 0, flash: 0, pop: 0, model: null, mixer: null });
-        this.addTarget('char', cat.id, [ped.hit]);
-        // base del instrumento en la consola
-        const a = THREE.MathUtils.degToRad(L.propAngles[i]);
-        const bx = L.consoleCenter.x + Math.sin(a) * L.propRadius, bz = L.consoleCenter.z - Math.cos(a) * L.propRadius;
-        const base = B.buildPropBase(cat);
+        this.chars[id] = Object.assign(ped, { index: i, instrument: null, hover: 0, pop: 0, mixer: null });
+        this.addTarget('char', id, [ped.hit]);
+      });
+      INSTRUMENTS.forEach((cat, i) => {
+        const accessory = i >= CHARACTERS.length;
+        const a = THREE.MathUtils.degToRad(L.propAngles[i] || 0);
+        const bx = accessory ? L.accessoryX[i - CHARACTERS.length] : L.consoleCenter.x + Math.sin(a) * L.propRadius;
+        const bz = accessory ? L.accessoryZ : L.consoleCenter.z - Math.cos(a) * L.propRadius;
+        const lift = accessory ? 0 : L.rearBaseLift;
+        const base = B.buildPropBase(cat, lift);
         base.group.position.set(bx, L.consoleTop, bz);
         root.add(base.group);
-        this.bases[cat.id] = Object.assign(base, { cat, home: new THREE.Vector3(bx, L.consoleTop + 0.11, bz), prop: null,
+        this.bases[cat.id] = Object.assign(base, { home: new THREE.Vector3(bx, L.consoleTop + lift + 0.1, bz), prop: null,
           state: 'home', hover: 0, phase: i * 1.3 });
         this.addTarget('base', cat.id, [base.hit]);
       });
@@ -174,7 +180,7 @@
       this.leftText = B.textPlane(sw - 0.12, sh - 0.12, 1024, (ctx, w, h, main, st) => {
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         ctx.font = B.font(600, 66);
-        const lines = B.wrap(ctx, main || 'Arrastrá los sonidos hacia los personajes para crear tu mix', w * 0.84);
+        const lines = B.wrap(ctx, main || 'Arrastrá un instrumento a cualquier personaje', w * 0.84);
         lines.forEach((ln, k) => B.glowText(ctx, ln, w * 0.08, h * 0.26 + k * 84, B.font(600, 66), '#efe6ff', '#b46bff', 10));
         // destello de cuatro puntas
         const sx = w * 0.86, sy = h * 0.72, r = 38;
@@ -188,9 +194,9 @@
         }
       });
       this.leftText.position.z = 0.05; this.leftScreen.add(this.leftText);
-      this.rightText = B.textPlane(sw - 0.12, sh - 0.12, 1024, (ctx, w, h, list, state) => {
+      this.rightText = B.textPlane(sw - 0.12, sh - 0.12, 1024, (ctx, w, h, list, state, genre) => {
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        B.glowText(ctx, 'Tu mezcla:', w * 0.08, h * 0.24, B.font(600, 72), '#d9c8ff', '#a64dff', 10);
+        B.glowText(ctx, genre?.label || 'Tu mezcla', w * 0.08, h * 0.24, B.font(600, 72), '#d9c8ff', '#a64dff', 10);
         ctx.font = B.font(600, 38);
         ctx.fillStyle = '#9d8cc4';
         ctx.textAlign = 'right';
@@ -199,10 +205,10 @@
         if (list && list.length) {
           let x = w * 0.08;
           for (const c of list) {
-            ctx.font = B.font(800, 34); const tw = ctx.measureText(c.label).width + 34;
+            ctx.font = B.font(800, 26); const tw = ctx.measureText(c.label).width + 22;
             ctx.fillStyle = c.color + '44'; ctx.strokeStyle = c.color; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, h * 0.83, tw, 52, 26) : ctx.rect(x, h * 0.83, tw, 52); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = '#ffffff'; ctx.fillText(c.label, x + 17, h * 0.83 + 38); x += tw + 14;
+            ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, h * 0.83, tw, 41, 20) : ctx.rect(x, h * 0.83, tw, 41); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#ffffff'; ctx.fillText(c.label, x + 11, h * 0.83 + 29); x += tw + 9;
           }
         }
       });
@@ -255,9 +261,9 @@
       const st = this.status && this.clock < this.status.until ? this.status : null;
       const main = this.S.phase === 'result' ? 'Tu beat quedó listo. Escuchalo, volvé al estudio o empezá de cero.' : null;
       this.leftText.userData.canvas.redraw(main, st);
-      const list = CATS.filter(c => this.S.assigned[c.id]);
+      const list = INSTRUMENTS.filter(c => this.S.assigned[c.id]);
       const state = !list.length ? 'vacía' : this.engine.playing ? 'sonando' : 'en pausa';
-      this.rightText.userData.canvas.redraw(list, state);
+      this.rightText.userData.canvas.redraw(list, state, this.S.genre);
       this.btnPlay.userData.label.userData.canvas.redraw(this.engine.playing ? 'PAUSE' : 'PLAY', this.engine.playing ? 'pause' : 'play');
       if (this.resPlay) this.resPlay.userData.label.userData.canvas.redraw(this.engine.playing ? 'PAUSE' : 'PLAY', this.engine.playing ? 'pause' : 'play');
     },
@@ -298,18 +304,25 @@
     },
 
     mountProps(gltf) {
-      for (const cat of CATS) {
-        const src = gltf.scene.getObjectByName(cat.prop);
+      for (const cat of INSTRUMENTS) {
         const g = new THREE.Group();
-        const m = src.clone(true); m.position.set(0, 0, 0);
-        m.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.emissiveMap = o.material.map; o.material.emissive = new THREE.Color('#000000'); } });
+        const model = cat.prop ? gltf.scene.getObjectByName(cat.prop).clone(true) : B.buildAccessory(cat);
+        const m = new THREE.Group();
+        m.add(model);
+        model.position.set(0, 0, 0);
+        model.traverse(o => {
+          if (!o.isMesh) return;
+          o.material = o.material.clone();
+          o.material.emissiveMap = o.material.map;
+          o.material.emissive = new THREE.Color('#000000');
+        });
         const box = new THREE.Box3().setFromObject(m), c = box.getCenter(new THREE.Vector3());
         m.position.set(-c.x, -box.min.y, -c.z);
         g.add(m);
         g.scale.setScalar(L.propScale);
         g.userData.mats = []; g.traverse(o => o.isMesh && g.userData.mats.push(o.material));
-        const hit = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 8), new THREE.MeshBasicMaterial({ visible: false }));
-        hit.position.y = 0.14; g.add(hit);
+        const hit = new THREE.Mesh(new THREE.SphereGeometry(cat.prop ? 0.19 : 0.15, 12, 8), new THREE.MeshBasicMaterial({ visible: false }));
+        hit.position.y = cat.prop ? 0.14 : 0.12; g.add(hit);
         const base = this.bases[cat.id];
         g.position.copy(base.home);
         this.studio.add(g);
@@ -318,9 +331,9 @@
       }
     },
 
-    mountCharacter(cat, gltf) {
-      const ch = this.chars[cat.id];
-      if (!gltf || gltf.error) { console.warn('[HYPEO] modelo faltante', cat.id, gltf && gltf.error); return; }
+    mountCharacter(id, gltf) {
+      const ch = this.chars[id];
+      if (!gltf || gltf.error) { console.warn('[HYPEO] modelo faltante', id, gltf && gltf.error); return; }
       const model = gltf.scene;
       model.traverse(o => {
         if (o.isMesh) {
@@ -377,11 +390,41 @@
         B.glowText(ctx, 'Es momento de crear tu propio sonido', w / 2, h / 2, B.font(600, 70), '#ddd0f7', '#7b3fe0', 12);
       });
       sub.position.set(0, 1.42, z - 1.2); g.add(sub);
-      this.btnStart = B.buildButton(0.62, 0.2, { fill: '#8a2cff', emissive: '#7a22ff', emissiveIntensity: 0.9, rim: '#d7a8ff', text: 'PLAY', icon: 'play', textColor: '#ffffff', textGlow: '#ffffff' });
+      this.btnStart = B.buildButton(0.62, 0.2, { fill: '#8a2cff', emissive: '#7a22ff', emissiveIntensity: 0.9, rim: '#d7a8ff', text: 'JUGAR', icon: 'play', textColor: '#ffffff', textGlow: '#ffffff' });
       this.btnStart.position.set(0, 1.08, z - 1.0); this.btnStart.rotation.x = -0.25;
       this.btnStart.userData.hover = 0; this.btnStart.userData.id = 'start';
       g.add(this.btnStart);
       this.addTarget('button', 'start', [this.btnStart.userData.body]);
+    },
+
+    buildGenreMenu() {
+      const panel = this.genreMenu;
+      panel.position.set(0, 1.62, -0.7);
+      panel.add(B.buildScreen(2.82, 1.92));
+      const title = B.textPlane(2.55, 0.23, 1024, (ctx, w, h) => {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        B.glowText(ctx, 'Elegí un género', w / 2, h / 2, B.font(800, 76), '#ffffff', C.neon, 18);
+      });
+      title.position.set(0, 0.72, 0.07);
+      panel.add(title);
+
+      const add = (id, text, x, y, back = false) => {
+        const button = B.buildButton(.79, .23, {
+          fill: back ? '#17111f' : '#361759', emissive: '#7a22ff', emissiveIntensity: back ? .1 : .42,
+          rim: '#ba73ff', text, textColor: '#ffffff'
+        });
+        button.position.set(x, y, 0.1);
+        button.userData.id = id;
+        button.userData.hover = 0;
+        panel.add(button);
+        this.addTarget('button', id, [button.userData.body]);
+        return button;
+      };
+
+      this.genreButtons = GENRES.map((genre, i) =>
+        add('genre-' + genre.id, genre.label, (i % 3 - 1) * .90, .36 - Math.floor(i / 3) * .32));
+      this.genreButtons.push(add('genre-back', 'Volver', .90, -.60, true));
     },
 
     // ------------------------------------------------------------ resultado
@@ -424,6 +467,7 @@
     setPhase(p) {
       this.S.phase = p;
       this.welcome.visible = p === 'welcome';
+      this.genreMenu.visible = p === 'genres';
       this.studio.visible = p === 'studio' || p === 'result';
       this.result.visible = p === 'result';
       const studioUI = p === 'studio';
@@ -438,31 +482,20 @@
       this.redrawPanels();
     },
 
-    async startStudio() {
-      if (this._starting) return; this._starting = true;
-      // desbloquea el audio dentro del gesto del usuario
-      const unlocking = this.engine.unlock();
-      await this.fadeTo(1, 0.35);
-      await unlocking;
-      this.setPhase('studio');
-      this.setLightLevel(0);
-      const load = this.engine.load();
-      await this.fadeTo(0, 0.25);
-      tween(1.1, k => this.setLightLevel(k), null, ease.inOut);
-      const r = await load;
-      if (r.failed.length) {
-        const names = r.failed.map(id => byId[id].label).join(', ');
-        this.say(`No se pudo cargar ${names}. Podés seguir con las otras pistas.`, '#ff9aa8', 7000);
-        for (const id of r.failed) this.setPropDisabled(id);
+    async startStudio(genre) {
+      this._lock = true;
+      this.engine.unlock();
+      try {
+        await this.fadeTo(1, 0.3);
+        this.engine.setGenre(genre);
+        this.S.genre = genre;
+        this.setPhase('studio');
+        this.setLightLevel(0);
+        await this.fadeTo(0, 0.25);
+        tween(1.1, k => this.setLightLevel(k), null, ease.inOut);
+      } finally {
+        this._lock = false;
       }
-      this._starting = false;
-    },
-
-    setPropDisabled(id) {
-      const b = this.bases[id];
-      if (!b.prop) return;
-      for (const m of b.prop.userData.mats) { m.transparent = true; m.opacity = 0.3; }
-      b.ring.userData.core.material.color.set('#3a3346');
     },
 
     // ------------------------------------------------------------ objetivos y punteros
@@ -474,8 +507,10 @@
     },
     targetEnabled(t) {
       const S = this.S, p = S.phase;
+      if (this._lock) return false;
       if (t.kind === 'button') {
         if (t.id === 'start') return p === 'welcome';
+        if (t.id.startsWith('genre-')) return p === 'genres';
         if (t.id.startsWith('res-')) return p === 'result';
         if (t.id === 'finish') return p === 'studio' && this.btnFinish.visible && this.btnFinish.scale.x > 0.4;
         return p === 'studio';
@@ -511,6 +546,7 @@
       const up = e => {
         if (!mouse.down) return;
         updateRay(e); this.updateHover(mouse); mouse.down = false;
+        if (this.engine.ctx && this.engine.ctx.state !== 'running') this.engine.unlock();
         this.release(mouse);
         if (e.pointerType !== 'mouse') mouse.active = false;
       };
@@ -574,7 +610,7 @@
     // ------------------------------------------------------------ acciones
     press(p) {
       const S = this.S, t = p.hover;
-      if (!this.ready) return;
+      if (!this.ready || this._lock) return;
       if (S.held) {
         if (S.held.mode === 'select') {
           // segundo clic: destino
@@ -588,8 +624,12 @@
       if (!t) return;
       if (t.kind === 'button') return this.button(t.id, p);
       if (t.kind === 'prop') return this.grab(t.id, p);
-      if ((t.kind === 'char' || t.kind === 'base') && S.assigned[t.id]) return this.unassign(t.id);
-      if (t.kind === 'char') this.say(`Agarrá ${byId[t.id].propName} de la consola y soltalo sobre ${byId[t.id].label}.`, '#d7c4ff');
+      if (t.kind === 'base') return this.unassign(t.id);
+      if (t.kind === 'char') {
+        const instrument = this.chars[t.id].instrument;
+        if (instrument) return this.unassign(instrument);
+        this.say('Elegí un instrumento de la consola para este personaje.', '#d7c4ff');
+      }
     },
 
     release(p) {
@@ -601,7 +641,7 @@
       if (!moved && !h.dragged) {
         // clic simple: queda seleccionado esperando el clic en el personaje
         h.mode = 'select';
-        this.say(`Ahora tocá a ${byId[h.id].label} para sumar ${byId[h.id].propName}.`, '#d7c4ff', 5000);
+        this.say(`Tocá un personaje para darle ${byId[h.id].propName}.`, '#d7c4ff', 5000);
         return;
       }
       let target = p.hover && p.hover.kind === 'char' ? p.hover.id : null;
@@ -621,9 +661,6 @@
     grab(id, p) {
       const S = this.S, b = this.bases[id];
       if (S.busy[id] || b.state !== 'home') return;
-      if (!this.engine.isLoaded(id) && this.engine.ctx && this.engine.failed[id]) {
-        return this.say(`La pista ${byId[id].label} no cargó. Probá con otro instrumento.`, '#ff9aa8');
-      }
       b.state = 'held';
       const obj = b.prop;
       const camPos = new THREE.Vector3(); this.el.camera.getWorldPosition(camPos);
@@ -640,7 +677,7 @@
       S.held = null;
       const b = this.bases[h.id];
       this.flyHome(h.id, h.obj.position.clone());
-      if (feedback && h.mode !== 'select') this.say('Soltalo sobre su personaje. Volvió a su lugar.', '#d7c4ff', 2600);
+      if (feedback && h.mode !== 'select') this.say('Soltalo sobre cualquier personaje.', '#d7c4ff', 2600);
       this.updateCursor();
       return b;
     },
@@ -650,75 +687,88 @@
       S.busy[id] = true; b.state = 'returning';
       obj.visible = this.S.phase === 'studio';
       const to = b.home.clone(), s0 = obj.scale.x;
-      tween(0.42, k => {
+      if (b.flight) b.flight.dead = true;
+      b.flight = tween(0.42, k => {
         obj.position.lerpVectors(from, to, k); obj.position.y += Math.sin(Math.PI * k) * 0.12;
         obj.scale.setScalar(s0 + (L.propScale - s0) * k);
       }, () => { b.state = 'home'; S.busy[id] = false; obj.scale.setScalar(L.propScale); }, ease.out);
     },
 
     drop(charId) {
-      const S = this.S, h = S.held; if (!h) return;
-      const id = h.id;
-      if (charId !== id) {
-        const ch = this.chars[charId]; ch.flash = 1;
-        S.held = null; this.flyHome(id, h.obj.position.clone()); this.updateCursor();
-        return this.say(`${byId[charId].label} no usa ${byId[id].propName}. Ese sonido va con ${byId[id].label}.`, '#ffb0c0');
-      }
-      if (this.engine.failed[id]) {
-        S.held = null; this.flyHome(id, h.obj.position.clone()); this.updateCursor();
-        return this.say(`La pista ${byId[id].label} no cargó.`, '#ff9aa8');
-      }
-      S.held = null; this.updateCursor();
-      this.assign(id, h.obj.position.clone());
+      const held = this.S.held;
+      if (!held) return;
+      this.S.held = null;
+      this.updateCursor();
+      this.assign(held.id, held.obj.position.clone(), charId);
     },
 
-    assign(id, from) {
-      const S = this.S, b = this.bases[id], ch = this.chars[id], obj = b.prop;
-      if (S.assigned[id] || S.busy[id]) return;
-      S.busy[id] = true; S.assigned[id] = true; b.state = 'assigned';
+    assign(id, from, charId) {
+      const S = this.S, base = this.bases[id], ch = this.chars[charId];
+      if (S.phase !== 'studio' || !base || !ch || S.assigned[id] || S.busy[id]) return;
       const wasEmpty = this.engine.activeCount() === 0;
-      this.engine.setTrack(id, true);
-      if (wasEmpty && !S.userPaused && !this.engine.playing) this.engine.play();
-      const to = new THREE.Vector3(); ch.group.getWorldPosition(to); to.y = ch.top + L.stageTop + 0.5;
-      const s0 = obj.scale.x;
-      tween(0.45, k => { obj.position.lerpVectors(from, to, k); obj.position.y += Math.sin(Math.PI * k) * 0.35; obj.scale.setScalar(s0 * (1 - k * 0.92)); },
-        () => { obj.visible = false; S.busy[id] = false; ch.pop = 1; }, ease.inOut);
-      b.check.visible = true;
-      this.setCharActive(id, true);
+      if (ch.instrument) this.returnInstrument(ch.instrument);
+      S.busy[id] = true;
+      S.assigned[id] = charId;
+      ch.instrument = id;
+      base.state = 'assigned';
+      this.engine.unlock();
+      this.engine.setTrack(id, ch.index);
+      if (wasEmpty && !S.userPaused) this.engine.play();
+
+      const obj = base.prop;
+      const to = this.instrumentPosition(ch);
+      const scale = obj.scale.x;
+      base.flight = tween(0.45, k => {
+        obj.position.lerpVectors(from, to, k);
+        obj.position.y += Math.sin(Math.PI * k) * 0.35;
+        obj.scale.setScalar(scale * (1 - k * 0.92));
+      }, () => {
+        obj.visible = false;
+        S.busy[id] = false;
+        ch.pop = 1;
+      }, ease.inOut);
+      this.updateAssignmentLights(base, ch, byId[id]);
       this.updateFinish();
-      this.redrawPanels();
-      const n = this.engine.activeCount();
-      if (!this.engine.playing) this.say(`${byId[id].label} quedó en tu mezcla. Tocá PLAY para escucharla.`, '#c9f7c0');
-      else this.say(n === 5 ? '¡Las cinco pistas suenan juntas! Tocá FINISH MIX cuando quieras.' : `${byId[id].label} entra en el próximo tiempo.`, '#c9f7c0', 2600);
+      this.say(this.engine.playing ? `${byId[id].label} se sumó a la mezcla.`
+        : `${byId[id].label} lista. Tocá PLAY para escuchar.`, '#c9f7c0', 2600);
+    },
+
+    instrumentPosition(ch) {
+      const point = ch.group.getWorldPosition(new THREE.Vector3());
+      point.y = ch.top + L.stageTop + 0.5;
+      return point;
+    },
+
+    returnInstrument(id) {
+      const S = this.S, base = this.bases[id], ch = this.chars[S.assigned[id]];
+      const from = S.busy[id] ? base.prop.position.clone() : this.instrumentPosition(ch);
+      delete S.assigned[id];
+      ch.instrument = null;
+      this.engine.setTrack(id, null);
+      this.updateAssignmentLights(base, ch, null);
+      if (!S.busy[id]) base.prop.scale.setScalar(0.1);
+      this.flyHome(id, from);
     },
 
     unassign(id) {
-      const S = this.S, b = this.bases[id], ch = this.chars[id];
-      if (!S.assigned[id] || S.busy[id]) return;
-      S.assigned[id] = false;
-      this.engine.setTrack(id, false);
-      if (this.engine.activeCount() === 0 && this.engine.playing) { this.engine.pause(); this.engine.pausedAt = 0; }
-      b.check.visible = false;
-      this.setCharActive(id, false);
-      const from = new THREE.Vector3(); ch.group.getWorldPosition(from); from.y = ch.top + L.stageTop + 0.5;
-      b.prop.scale.setScalar(0.1); b.prop.position.copy(from);
-      this.flyHome(id, from);
+      if (!this.S.assigned[id]) return;
+      this.returnInstrument(id);
+      if (this.engine.activeCount() === 0) {
+        this.engine.pause();
+        this.engine.pausedAt = 0;
+      }
       this.updateFinish();
-      this.redrawPanels();
-      this.say(`Quitaste ${byId[id].label}. ${byId[id].propName[0].toUpperCase() + byId[id].propName.slice(1)} volvió a la consola.`, '#d7c4ff', 2600);
+      this.say(`Quitaste ${byId[id].label} de tu mezcla.`, '#d7c4ff', 2600);
     },
 
-    setCharActive(id, on) {
-      const ch = this.chars[id], cat = ch.cat;
-      const col = on ? cat.color : C.coral;
-      ch.ring.userData.core.material.color.set(col).multiplyScalar(on ? 1.6 : 1.15);
-      ch.ring.userData.halo.material.color.set(col);
-      ch.ring.userData.halo.material.opacity = on ? 0.42 : 0.16;
-      ch.plateGlow.visible = on;
-      ch.label.userData.canvas.redraw(on);
-      const bc = this.bases[id].ring;
-      bc.userData.core.material.color.set(on ? cat.color : C.blue).multiplyScalar(1.3);
-      bc.userData.halo.material.color.set(on ? cat.color : C.blue);
+    updateAssignmentLights(base, ch, instrument) {
+      const color = instrument?.color || C.coral;
+      ch.ring.userData.core.material.color.set(color).multiplyScalar(instrument ? 1.6 : 1.15);
+      ch.ring.userData.halo.material.color.set(color);
+      base.check.visible = !!instrument;
+      const ring = base.ring.userData;
+      ring.core.material.color.set(instrument?.color || C.blue).multiplyScalar(1.3);
+      ring.halo.material.color.set(instrument?.color || C.blue);
     },
 
     updateFinish() {
@@ -727,8 +777,13 @@
       if (show === b.userData.shown) return;
       b.userData.shown = show;
       const s = b.userData.base || 1;
-      if (show) { b.visible = true; tween(0.35, k => b.scale.setScalar(Math.max(0.001, k * s)), null, ease.back); }
-      else tween(0.2, k => b.scale.setScalar(Math.max(0.001, (1 - k) * s)), () => { b.visible = false; });
+      if (b.userData.flight) b.userData.flight.dead = true;
+      if (show) {
+        b.visible = true;
+        b.userData.flight = tween(0.35, k => b.scale.setScalar(Math.max(0.001, k * s)), null, ease.back);
+      } else {
+        b.userData.flight = tween(0.2, k => b.scale.setScalar(Math.max(0.001, (1 - k) * s)), () => { b.visible = false; });
+      }
     },
 
     button(id) {
@@ -736,15 +791,23 @@
       const btn = { start: this.btnStart, play: this.btnPlay, reset: this.btnReset, finish: this.btnFinish, 'res-play': this.resPlay, 'res-back': this.resBack, 'res-new': this.resNew }[id];
       if (btn) { btn.userData.press = 1; }
       if (this._lock) return;
+      if (id.startsWith('genre-') && S.phase === 'genres') {
+        if (id === 'genre-back') return this.setPhase('welcome');
+        const genre = genreById[id.slice(6)];
+        if (genre) return this.startStudio(genre);
+      }
       switch (id) {
-        case 'start': return this.startStudio();
+        case 'start':
+          if (S.phase !== 'welcome') return;
+          this.engine.unlock();
+          return this.setPhase('genres');
         case 'play':
         case 'res-play':
           if (!E.ctx) return;
           E.unlock();
           if (E.activeCount() === 0) {
             this.pulseProps();
-            return this.say('Tu mezcla está vacía. Elegí un instrumento y llevalo a su personaje.', '#ffd27a', 4200);
+            return this.say('Tu mezcla está vacía. Elegí un instrumento y llevalo a cualquier personaje.', '#ffd27a', 4200);
           }
           if (E.playing) { E.pause(); S.userPaused = true; } else { E.play(); S.userPaused = false; }
           return this.redrawPanels();
@@ -762,14 +825,7 @@
     reset(silent = false) {
       const S = this.S;
       this.cancelHeld();
-      for (const c of CATS) {
-        if (S.assigned[c.id]) {
-          S.assigned[c.id] = false; this.bases[c.id].check.visible = false; this.setCharActive(c.id, false);
-          const ch = this.chars[c.id], from = new THREE.Vector3(); ch.group.getWorldPosition(from); from.y = ch.top + L.stageTop + 0.5;
-          const b = this.bases[c.id]; b.prop.scale.setScalar(0.1); b.prop.position.copy(from);
-          S.busy[c.id] = false; this.flyHome(c.id, from);
-        }
-      }
+      for (const id of Object.keys(S.assigned)) this.returnInstrument(id);
       this.engine.clear();
       S.userPaused = false;
       this.updateFinish();
@@ -778,7 +834,7 @@
     },
 
     makeName() {
-      const act = CATS.filter(c => this.S.assigned[c.id]);
+      const act = INSTRUMENTS.filter(c => this.S.assigned[c.id]);
       const pick = a => a[Math.floor(Math.random() * a.length)];
       const tail = ['Solo', 'Duo', 'Groove', 'Wave', 'Anthem'][act.length - 1];
       const first = pick(act[0].word), last = act.length > 1 ? pick(act[act.length - 1].word) : pick(['Night', 'Dream', 'Glow']);
@@ -900,20 +956,23 @@
       // personajes: quietos sin instrumento, baile en fase con el beat cuando suena su pista
       const lat = E.ctx ? (E.ctx.outputLatency || E.ctx.baseLatency || 0) : 0;
       const pos = E.position - (E.playing ? lat : 0);
-      const barPhase = ((pos % M.bar) + M.bar) % M.bar / M.bar;
-      const beatPhase = ((pos % M.beat) + M.beat) % M.beat / M.beat;
+      const barPhase = ((pos % E.bar) + E.bar) % E.bar / E.bar;
+      const beatPhase = ((pos % E.beat) + E.beat) % E.beat / E.beat;
       for (const id in this.chars) {
         const ch = this.chars[id];
-        const validTarget = h && h.mode !== 'drop' && h.id === id;
+        const instrument = ch.instrument && byId[ch.instrument];
+        const heldInstrument = h && byId[h.id];
         const pointed = this.pointers.some(p => p.hover && p.hover.kind === 'char' && p.hover.id === id);
-        ch.hover = THREE.MathUtils.lerp(ch.hover, validTarget ? (pointed ? 1 : 0.55) : (pointed && S.assigned[id] && !h ? 0.4 : 0), 1 - Math.pow(0.0002, dt));
-        ch.flash = Math.max(0, ch.flash - dt * 2.2);
+        const hover = heldInstrument ? (pointed ? 1 : 0.42) : (pointed && instrument ? 0.4 : 0);
+        ch.hover = THREE.MathUtils.lerp(ch.hover, hover, 1 - Math.pow(0.0002, dt));
+        ch.target.material.color.set(heldInstrument?.glow || C.lilac);
         ch.target.material.opacity = ch.hover * (0.35 + 0.25 * Math.sin(this.clock * 8));
-        if (ch.flash > 0) { ch.ring.userData.halo.material.color.set('#ff4d6d'); ch.ring.userData.halo.material.opacity = 0.2 + ch.flash * 0.5; }
-        else if (!S.assigned[id]) { ch.ring.userData.halo.material.color.set(validTarget ? ch.cat.glow : C.coral); ch.ring.userData.halo.material.opacity = 0.16 + ch.hover * 0.45; }
-        else ch.ring.userData.halo.material.opacity = 0.35 + 0.2 * (E.isAudible(id) ? Math.pow(1 - beatPhase, 3) : 0);
+        const dancing = !!instrument && E.isAudible(instrument.id);
+        ch.ring.userData.halo.material.color.set(instrument?.color || heldInstrument?.glow || C.coral);
+        ch.ring.userData.halo.material.opacity = instrument
+          ? 0.35 + 0.2 * (dancing ? Math.pow(1 - beatPhase, 3) : 0)
+          : 0.16 + ch.hover * 0.45;
         if (!ch.mixer) continue;
-        const dancing = E.isAudible(id) && S.phase !== 'welcome';
         ch.danceW = THREE.MathUtils.lerp(ch.danceW, dancing ? 1 : 0, 1 - Math.pow(0.002, dt));
         if (ch.danceW < 0.002) ch.danceW = 0;
         ch.dance.time = barPhase * ch.dance.getClip().duration;
@@ -940,7 +999,7 @@
         for (const sp of this.speakers) for (const key in sp.userData) if (key.startsWith('cone')) sp.userData[key].scale.setScalar(1 + k * 0.25);
       }
       // botones: hover y pulsación
-      for (const b of [this.btnReset, this.btnPlay, this.btnFinish, this.btnStart, this.resPlay, this.resBack, this.resNew]) {
+      for (const b of [this.btnReset, this.btnPlay, this.btnFinish, this.btnStart, this.resPlay, this.resBack, this.resNew, ...this.genreButtons]) {
         if (!b || !b.visible) continue;
         const hov = this.pointers.some(p => p.hover && p.hover.kind === 'button' && p.hover.id === b.userData.id);
         b.userData.hover = THREE.MathUtils.lerp(b.userData.hover, hov ? 1 : 0, 1 - Math.pow(0.0001, dt));

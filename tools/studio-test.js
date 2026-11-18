@@ -7,7 +7,8 @@ const url = process.env.URL || 'http://127.0.0.1:8080/';
 const width = Number(process.env.W || 1672);
 const height = Number(process.env.H || 941);
 const out = process.env.OUT || 'captures';
-const ids = ['beats', 'bass', 'melody', 'vocals', 'fx'];
+const characters = ['beats', 'bass', 'melody', 'vocals', 'fx'];
+const extras = ['guitar', 'percussion', 'brass', 'synth'];
 
 async function main() {
   const browser = await chromium.launch({
@@ -56,18 +57,30 @@ async function main() {
     await page.goto(url);
     await wait(() => window.__hypeo?.ready && !__hypeo.fade.visible);
     await click('button', 'start');
+    await phase('genres');
+    const menus = await page.evaluate(() => __hypeo.genreButtons.map(button => button.userData.id));
+    assert.deepEqual(menus, ['genre-reggaeton', 'genre-trap', 'genre-rnb', 'genre-detroit', 'genre-dembow',
+      'genre-drill', 'genre-rkt', 'genre-house', 'genre-bachata', 'genre-guaracha', 'genre-jazz', 'genre-back']);
+    await click('button', 'genre-back');
+    await phase('welcome');
+    await click('button', 'start');
+    await phase('genres');
+    await click('button', 'genre-bachata');
     await phase('studio');
-    await wait(() => __hypeo.lightLevel === 1 && !__hypeo._starting);
-    assert.equal(await page.evaluate(() => __hypeo.engine.ctx.state), 'running');
-    assert.deepEqual(await page.evaluate(() => Object.keys(__hypeo.engine.failed)), []);
+    await wait(() => __hypeo.lightLevel === 1);
+    assert.deepEqual(await page.evaluate(() => [__hypeo.engine.ctx.state, __hypeo.S.genre.label, __hypeo.engine.beat]),
+      ['running', 'Bachata', 60 / 128]);
     fs.mkdirSync(out, { recursive: true });
     await page.screenshot({ path: path.join(out, `studio-${width}x${height}.png`), timeout: 90000 });
     console.log(`Studio captured at ${width}×${height}`);
 
-    for (const [index, id] of ids.entries()) {
-      await drag(id, id);
+    const tracks = ['vocals', ...extras];
+    for (const [index, id] of tracks.entries()) {
+      await drag(id, characters[index]);
       await count(index + 1);
-      assert.equal(await page.evaluate(id => __hypeo.S.assigned[id], id), true);
+      assert.deepEqual(await page.evaluate(id => [
+        __hypeo.S.assigned[id], __hypeo.engine.tracks.get(id).player
+      ], id), [characters[index], index]);
     }
     await wait(() => Object.values(__hypeo.chars).every(ch => ch.danceW > 0.8));
     const bars = await page.evaluate(() => __hypeo.bars.map(bar => bar.scale.y));
@@ -76,16 +89,27 @@ async function main() {
 
     await click('char', 'melody');
     await count(4);
-    await wait(() => __hypeo.chars.melody.danceW === 0 && __hypeo.bases.melody.state === 'home');
+    await wait(() => __hypeo.chars.melody.danceW === 0 && __hypeo.bases.percussion.state === 'home');
     await click('button', 'play');
     await wait(() => !__hypeo.engine.playing && Object.values(__hypeo.chars).every(ch => ch.danceW === 0));
     const pausedAt = await page.evaluate(() => __hypeo.engine.position);
     await click('button', 'play');
     await wait(() => __hypeo.engine.playing && __hypeo.chars.beats.danceW > 0.8);
     assert.equal(await page.evaluate(() => __hypeo.engine.pausedAt), pausedAt);
-    await drag('melody', 'vocals');
-    await wait(() => __hypeo.status.text.includes('VOCALS no usa') && __hypeo.bases.melody.state === 'home');
+    await drag('beats', 'vocals');
     await count(4);
+    assert.deepEqual(await page.evaluate(() => [
+      __hypeo.chars.vocals.instrument, __hypeo.bases.brass.state, __hypeo.engine.tracks.get('beats').player
+    ]), ['beats', 'home', 3]);
+    const differentPatterns = await page.evaluate(() => {
+      const engine = __hypeo.engine;
+      const first = engine.bufferFor('beats', 0).getChannelData(0);
+      const fourth = engine.bufferFor('beats', 3).getChannelData(0);
+      const trap = HY.renderTrack(engine.ctx, HY.GENRES.find(genre => genre.id === 'trap'), 'beats', 0).getChannelData(0);
+      return first.some((sample, i) => Math.abs(sample - fourth[i]) > .02) &&
+        first.some((sample, i) => Math.abs(sample - trap[i]) > .02);
+    });
+    assert.equal(differentPatterns, true);
 
     await click('button', 'finish');
     await phase('result');
@@ -99,8 +123,9 @@ async function main() {
 
     await click('prop', 'beats');
     await wait(() => __hypeo.S.held?.mode === 'select');
-    await click('char', 'beats');
+    await click('char', 'fx');
     await count(1);
+    assert.equal(await page.evaluate(() => __hypeo.chars.fx.instrument), 'beats');
     await click('button', 'finish');
     await phase('result');
     await click('button', 'res-new');
@@ -108,12 +133,12 @@ async function main() {
     await count(0);
     await wait(() => Object.values(__hypeo.bases).every(base => base.state === 'home' && base.prop.visible));
 
-    for (const asset of [...ids.flatMap(id => [`${id}.glb`, `${id}.wav`]), 'props.glb', 'logo.glb',
+    for (const asset of [...characters.map(id => `${id}.glb`), 'props.glb', 'logo.glb',
       'Poppins-800.woff2', 'Poppins-600.woff2', 'PermanentMarker.woff2']) {
       assert.ok(assets.has(asset), `Missing asset response: ${asset}`);
     }
     assert.deepEqual(errors, []);
-    console.log('Passed: five tracks, removal, pause/resume, incorrect drop, visualizer, result, back, reset, new mix and asset loading.');
+    console.log('Passed: genre selection, all four new instruments, free assignment, replacement, distinct rhythms, visualizer, playback and result.');
   } finally {
     await browser.close();
   }
