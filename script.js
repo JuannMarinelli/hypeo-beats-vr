@@ -223,7 +223,8 @@
         ctx.font = B.font(600, 38);
         ctx.fillStyle = '#9d8cc4';
         ctx.textAlign = 'right';
-        ctx.fillText(genre ? genre.bpm + ' BPM' : state || 'vacía', w * 0.92, h * 0.24);
+        const meter = genre?.beatsPerBar ? '  ·  ' + genre.beatsPerBar + '/4' : '';
+        ctx.fillText(genre ? genre.bpm + ' BPM' + meter : state || 'vacía', w * 0.92, h * 0.24);
         ctx.textAlign = 'left';
         if (list && list.length) {
           let x = w * 0.08, y = h * .75;
@@ -691,6 +692,7 @@
             base.state = 'home';
             base.prop.scale.setScalar(L.propScale);
             this.S.busy[id] = false;
+            base.index = genre.carouselOrder.indexOf(id);
             const instrument = genre.instruments[id];
             this.setPropModel(base, instrument.shape, instrument);
             base.label.userData.canvas.redraw(instrument.label.toUpperCase());

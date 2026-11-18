@@ -16,7 +16,7 @@
       this.cache.clear();
       this.genre = genre;
       this.beat = 60 / genre.bpm;
-      this.bar = this.beat * HY.MUSIC.beatsPerBar;
+      this.bar = this.beat * (genre.beatsPerBar || HY.MUSIC.beatsPerBar);
       this.loop = this.bar * HY.MUSIC.bars;
     }
 

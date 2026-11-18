@@ -174,6 +174,46 @@ async function main() {
     await count(0);
     await wait(() => Object.values(__hypeo.bases).every(base => base.state === 'home' && base.prop.visible === base.front));
 
+    const expectedGenres = [
+      ['reggaeton', 98, 4, ['Bajo sub', 'Kick', 'Caja dembow']],
+      ['trap', 150, 4, ['Hi-hat rolls', '808', 'Campanas']],
+      ['rnb', 96, 4, ['Guitarra limpia', 'Rhodes', 'Armonías']],
+      ['detroit', 190, 4, ['Caja seca', 'Piano Detroit', '808 corto']],
+      ['dembow', 115, 4, ['Güira', 'Caja dembow', 'Kick dembow']],
+      ['drill', 144, 4, ['Piano oscuro', '808 con glide', 'Cuerdas tensas']],
+      ['rkt', 104, 4, ['Bombo RKT', 'Teclas RKT', 'Cencerro']],
+      ['house', 126, 4, ['Bajo offbeat', 'Kick house', 'Hi-hat abierto']],
+      ['bachata', 128, 4, ['Bongó', 'Requinto', 'Güira']],
+      ['guaracha', 134, 4, ['Silbidos', 'Trompetas', 'Teclas pegadizas']],
+      ['jazz', 132, 5, ['Contrabajo', 'Saxo', 'Batería con ride']]
+    ];
+    for (const [genre, bpm, meter, featured] of expectedGenres) {
+      await click('button', 'genres');
+      await phase('genres');
+      await click('button', 'genre-' + genre);
+      await phase('studio');
+      const settings = await page.evaluate(() => {
+        const game = __hypeo;
+        const engine = game.engine;
+        const visible = Object.entries(game.bases)
+          .filter(([, base]) => base.prop.visible)
+          .sort(([, left], [, right]) => left.home.x - right.home.x)
+          .map(([id]) => game.instrument(id).label);
+        return [game.S.genre.id, engine.beat, engine.bar, visible];
+      });
+      assert.deepEqual(settings, [genre, 60 / bpm, (60 / bpm) * meter, featured]);
+
+      const playable = await page.evaluate(() => {
+        const engine = __hypeo.engine;
+        return Object.keys(__hypeo.bases).every(id => {
+          const buffer = engine.bufferFor(id, 2);
+          return Math.abs(buffer.duration - engine.loop) <= 1 / buffer.sampleRate &&
+            buffer.getChannelData(0).some(sample => Math.abs(sample) > .001);
+        });
+      });
+      assert.equal(playable, true, genre);
+    }
+
     for (const asset of [...characters.map(id => `${id}.glb`), 'props.glb', 'logo.glb',
       'Poppins-800.woff2', 'Poppins-600.woff2', 'PermanentMarker.woff2']) {
       assert.ok(assets.has(asset), `Missing asset response: ${asset}`);

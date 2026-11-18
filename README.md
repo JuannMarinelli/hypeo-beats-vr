@@ -18,7 +18,7 @@ Abrir http://localhost:8080/ (URL **local**). No hay dependencias remotas: A-Fra
   Clic en un personaje/pedestal asignado = quitar la pista. Botones 3D: PLAY/PAUSE, RESET, FINISH MIX (aparece con ≥1 pista).
 - **VR**: botón "Entrar en VR" (solo si el navegador soporta `immersive-vr`). Rayo del mando + gatillo o grip para agarrar/soltar y para los botones.
 
-- **Plataforma**. Tocá ◀ o ▶ con el mouse o los mandos. Con mouse o trackpad también podés usar la rueda. Los instrumentos aparecen de a tres al frente.
+- **Plataforma**. Tocá ◀ o ▶ con el mouse o los mandos. Con mouse o trackpad también podés usar la rueda. Los instrumentos aparecen de a tres al frente. Cada género empieza con tres sonidos representativos en la plataforma.
 - **Géneros**. Volvé al selector desde el estudio. Si volvés al mismo género recuperás tu mezcla. Si elegís otro se inicia una mezcla nueva.
 - **FINISH MIX**. Escribí un título con el teclado o usá el teclado 3D en VR. Podés editarlo desde el resultado.
 
@@ -38,7 +38,7 @@ Cada instrumento se sintetiza en su propio buffer. Los stems son originales y la
 | House | 126 | Kick a negras, bajo al contratiempo, hi-hat abierto y guitarra disco |
 | Bachata | 128 | Requinto, guitarra segunda, bongó, güira y bajo |
 | Guaracha | 134 | Trompetas, teclas, bajo al contratiempo, silbidos y FX de subida |
-| Jazz | 132 | Contrabajo, piano, saxo, escobillas, ride y scat |
+| Jazz | 132 (5/4) | Contrabajo, piano, saxo, escobillas, ride y scat |
 
 ## Estructura
 

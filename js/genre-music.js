@@ -4,6 +4,11 @@
   const soul = [[57, 60, 64, 67], [50, 53, 57, 60], [55, 59, 62, 65], [48, 52, 55, 59]];
   const latin = [[57, 60, 64], [55, 59, 62], [53, 57, 60], [52, 56, 59]];
   const jazz = [[50, 53, 57, 60], [55, 59, 62, 65], [48, 52, 55, 59], [57, 60, 64, 67]];
+  const trap = [[54, 57, 61], [54, 57, 61, 64], [50, 54, 57], [49, 53, 56]];
+  const detroit = [[48, 51, 55], [48, 51, 55, 58], [44, 48, 51], [43, 47, 50]];
+  const rkt = [[55, 58, 62], [55, 58, 62], [51, 55, 58], [53, 57, 60]];
+  const house = [[53, 57, 60, 64], [55, 58, 62, 65], [57, 60, 64, 67], [57, 60, 64, 67]];
+  const guaracha = [[52, 55, 59], [48, 52, 55], [50, 54, 57], [52, 55, 59]];
   const drill = [[54, 57, 61], [50, 54, 57], [52, 56, 59], [49, 53, 56]];
   const straight = [0, 4, 8, 12];
   const offbeat = [2, 6, 10, 14];
@@ -14,30 +19,29 @@
   HY.GENRES = [
     { id: 'reggaeton', label: 'Reggaeton', bpm: 98, chords: minor, kit: [51, .17, 170, 2750, .075], color: .62, sub: .65,
       kick: straight, snare: [3, 6, 11, 14], hats: offbeat, bass: [0, 6, 8, 14], comp: [2, 6, 10, 14], lead: [0, 5, 8, 11], perc: [2, 5, 9, 13] },
-    { id: 'trap', label: 'Trap', bpm: 150, chords: minor, kit: [45, .24, 202, 2500, .043], color: .43, sub: .98,
+    { id: 'trap', label: 'Trap', bpm: 150, chords: trap, kit: [45, .24, 202, 2500, .043], color: .43, sub: .98,
       kick: [0, 6, 11], snare: [8], hats: [...eighths, 13, 15, 15.5], bass: [0, 6, 11, 14], comp: [0, 10], lead: [0, 3, 10, 14], perc: [3, 7, 13] },
     { id: 'rnb', label: 'R&B', bpm: 96, chords: soul, kit: [49, .14, 152, 1730, .083], color: .28, sub: .42, swing: .22,
       kick: [0, 5, 10, 15], snare: [4, 12], hats: eighths, bass: [0, 5, 10, 13], comp: [0, 7, 12], lead: [2, 6, 11, 13], perc: [3, 8, 14] },
-    { id: 'detroit', label: 'Detroit', bpm: 190, chords: minor, kit: [56, .14, 213, 3590, .055], color: .78, sub: .84,
+    { id: 'detroit', label: 'Detroit', bpm: 190, chords: detroit, kit: [56, .14, 213, 3590, .055], color: .78, sub: .84,
       kick: [0, 2.5, 7, 10, 13, 15.5], snare: [8, 15], hats: [0, 3, 6, 8, 10, 14], bass: [0, 2, 7, 10, 13], comp: [0, 3, 6, 10, 13], lead: [0, 4, 7, 10, 14], perc: [1, 5, 9, 11, 15] },
     { id: 'dembow', label: 'Dembow', bpm: 115, chords: latin, kit: [54, .115, 248, 3180, .035], color: .72, sub: .68,
       kick: [0, 4, 8, 12, 14], snare: dembow, hats: [2, 6, 8, 10, 14], bass: [0, 3, 7, 8, 12, 14], comp: [0, 3, 8, 11], lead: [0, 3, 7, 10, 15], perc: [2, 4, 6, 9, 12, 14] },
     { id: 'drill', label: 'Drill', bpm: 144, chords: drill, kit: [42, .21, 227, 1960, .054], color: .37, sub: 1,
       kick: [0, 6, 10, 15], snare: [6, 14], hats: [0, 3, 6, 9, 11, 13, 15], bass: [0, 6, 10, 13.5], comp: [0, 9], lead: [0, 6, 9, 13], perc: [3, 7, 10, 15] },
-    { id: 'rkt', label: 'Rkt', bpm: 104, chords: latin, kit: [47, .20, 184, 3850, .062], color: .87, sub: .88,
+    { id: 'rkt', label: 'Rkt', bpm: 104, chords: rkt, kit: [47, .20, 184, 3850, .062], color: .87, sub: .88,
       kick: [0, 3, 4, 8, 10, 12], snare: [3, 6, 11, 15], hats: [0, 2, 6, 8, 10, 14], bass: [0, 3, 6, 8, 10, 14], comp: [1, 4, 7, 10, 14], lead: [0, 3, 8, 13], perc: [1, 5, 7, 9, 13, 15] },
-    { id: 'house', label: 'House', bpm: 126, chords: soul, kit: [52, .17, 167, 3050, .10], color: .56, sub: .52,
+    { id: 'house', label: 'House', bpm: 126, chords: house, kit: [52, .17, 167, 3050, .10], color: .56, sub: .52,
       kick: straight, snare: [4, 12], hats: offbeat, bass: [2, 6, 10, 14], comp: [2, 5, 10, 13], lead: [2, 6, 9, 14], perc: [1, 6, 9, 14] },
     { id: 'bachata', label: 'Bachata', bpm: 128, chords: latin, kit: [73, .075, 310, 1520, .061], color: .26, sub: .35,
       kick: [0, 8, 12], snare: [4, 7, 10, 12, 15], hats: eighths, bass: [0, 4, 8, 12, 14], comp: eighths, lead: [0, 2, 5, 8, 10, 12, 15], perc: [0, 2, 4, 6, 7, 10, 12, 14] },
-    { id: 'guaracha', label: 'Guaracha', bpm: 134, chords: minor, kit: [55, .15, 282, 3320, .083], color: .96, sub: .73,
+    { id: 'guaracha', label: 'Guaracha', bpm: 134, chords: guaracha, kit: [55, .15, 282, 3320, .083], color: .96, sub: .73,
       kick: straight, snare: [4, 11, 12, 15], hats: [2, 6, 9, 10, 14], bass: [2, 3, 6, 10, 11, 14], comp: [0, 3, 6, 9, 12, 14], lead: [0, 3, 6, 8, 11, 14], perc: [0, 3, 5, 7, 10, 14] },
-    { id: 'jazz', label: 'Jazz', bpm: 132, chords: jazz, kit: [65, .09, 193, 1260, .13], color: .18, sub: .24, swing: 2 / 3,
-      kick: [0, 8], snare: [4, 7, 12], hats: [0, 4, 6, 8, 12, 14], bass: straight, comp: [0, 6, 12, 14], lead: [0, 2, 6, 8, 10, 14], perc: [4, 9, 12] }
+    { id: 'jazz', label: 'Jazz', bpm: 132, beatsPerBar: 5, chords: jazz, kit: [65, .09, 193, 1260, .13], color: .18, sub: .24, swing: 2 / 3,
+      kick: [0, 12], snare: [4, 10, 16], hats: [0, 4, 6, 8, 12, 14, 16, 18], bass: [0, 4, 8, 12, 16], comp: [0, 6, 10, 12, 18], lead: [0, 2, 6, 10, 12, 16, 18], perc: [4, 10, 16] }
   ];
 
-  // Cada columna ocupa el mismo lugar en la plataforma. El timbre y el arreglo
-  // se eligen por género, mientras el identificador de la pista queda estable.
+  // Los IDs de pista son estables. El timbre y el orden en la plataforma dependen del género.
   const palettes = {
     reggaeton: [['Kick', 'kick'], ['Bajo sub', 'sub'], ['Keys', 'pluck'], ['Vocal chops', 'chop'],
       ['Caja dembow', 'clap'], ['Guitarra mute', 'muted'], ['Hi-hats', 'hat'], ['Sinte lead', 'lead'], ['Pad', 'pad']],
@@ -78,7 +82,25 @@
   const propByTimbre = Object.fromEntries(Object.entries(propGroups)
     .flatMap(([prop, timbres]) => timbres.map(timbre => [timbre, prop])));
 
+  // Izquierda, centro y derecha al abrir el estudio.
+  const featured = {
+    reggaeton: ['bass', 'beats', 'fx'],
+    trap: ['percussion', 'bass', 'melody'],
+    rnb: ['guitar', 'melody', 'vocals'],
+    detroit: ['fx', 'melody', 'bass'],
+    dembow: ['percussion', 'fx', 'beats'],
+    drill: ['melody', 'bass', 'guitar'],
+    rkt: ['beats', 'melody', 'guitar'],
+    house: ['bass', 'beats', 'percussion'],
+    bachata: ['beats', 'melody', 'percussion'],
+    guaracha: ['vocals', 'brass', 'melody'],
+    jazz: ['bass', 'brass', 'beats']
+  };
+
   for (const genre of HY.GENRES) {
+    const [left, center, right] = featured[genre.id];
+    const featuredIds = new Set([left, center, right]);
+    genre.carouselOrder = [center, right, ...HY.INSTRUMENTS.map(slot => slot.id).filter(id => !featuredIds.has(id)), left];
     genre.instruments = Object.fromEntries(HY.INSTRUMENTS.map((slot, i) => {
       const [label, timbre] = palettes[genre.id][i];
       return [slot.id, { ...slot, label, timbre, shape: propByTimbre[timbre] || 'percussion' }];
@@ -86,12 +108,12 @@
   }
 
   // Las cinco interpretaciones conservan el pulso del género y cambian dónde caen los acentos.
-  function phrasing(pattern, player, bar) {
+  function phrasing(pattern, player, bar, steps) {
     switch (player) {
       case 0: return pattern;
-      case 1: return pattern.filter((_, i) => i % 2 === 0).concat(13 + bar % 2);
-      case 2: return pattern.map((s, i) => (s + (i % 2 ? -.5 : 1) + 16) % 16);
-      case 3: return pattern.concat([5.5, bar % 2 ? 15.5 : 11.5]);
+      case 1: return pattern.filter((_, i) => i % 2 === 0).concat(steps - 3 + bar % 2);
+      case 2: return pattern.map((s, i) => (s + (i % 2 ? -.5 : 1) + steps) % steps);
+      case 3: return pattern.concat([5.5, bar % 2 ? steps - .5 : steps - 4.5]);
       case 4: return pattern.filter((_, i) => i % 3 !== 1).concat([2.5, 9.5]);
     }
   }
@@ -250,7 +272,7 @@
     const rate = 24000;
     const beat = 60 / genre.bpm;
     const step = beat / 4;
-    const stepsPerBar = HY.MUSIC.beatsPerBar * 4;
+    const stepsPerBar = (genre.beatsPerBar || HY.MUSIC.beatsPerBar) * 4;
     const length = Math.round(rate * step * stepsPerBar * HY.MUSIC.bars);
     const buffer = ctx.createBuffer(2, length, rate);
     const left = buffer.getChannelData(0), right = buffer.getChannelData(1);
@@ -278,7 +300,7 @@
 
     for (let bar = 0; bar < HY.MUSIC.bars; bar++) {
       const start = bar * stepsPerBar;
-      const at = pattern => [...new Set(phrasing(pattern, player, bar))].sort((a, b) => a - b);
+      const at = pattern => [...new Set(phrasing(pattern, player, bar, stepsPerBar))].sort((a, b) => a - b);
       const drum = (part, pattern, duration, gain, pan) => {
         const danceKick = part === 'kick' && ['reggaeton', 'house', 'guaracha'].includes(genre.id);
         const steps = danceKick && player ? [...pattern, 14 + player * .25].sort((a, b) => a - b) : at(pattern);
@@ -308,13 +330,13 @@
       const times = at(pattern);
       times.forEach((s, i) => {
         const tone = (i + bar) % chord.length;
-        const next = times[i + 1] ?? 16 + times[0];
+        const next = times[i + 1] ?? stepsPerBar + times[0];
         const needSpace = ['pad', 'bow'].includes(timbre);
         const maxSteps = needSpace ? 14 : timbre === 'chop' ? 2.4 : timbre === 'riser' ? 9 : 5;
         const duration = step * Math.min(maxSteps, (next - s) * (needSpace ? 1 : .9));
         let pitches = [chord[tone] + 12];
         if (id === 'bass') {
-          pitches = [chord[timbre === 'upright' ? i % chord.length : i % 3 === 2 ? 2 : 0] - (timbre === 'upright' || timbre === 'electric' ? 12 : 24)];
+          pitches = [chord[timbre === 'upright' ? (i + (i > 0 ? bar % 2 : 0)) % chord.length : i % 3 === 2 ? 2 : 0] - (timbre === 'upright' || timbre === 'electric' ? 12 : 24)];
         } else if (needSpace || ['rhodes', 'harmony'].includes(timbre) || (timbre === 'piano' && i % 2 === 0)) {
           pitches = chord.slice(-3);
         } else if (timbre === 'muted') {
