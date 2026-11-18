@@ -26,10 +26,13 @@ W=1672 H=941 OUT=captures node tools/capture.js   # requiere playwright; guarda 
 para automatizar pruebas. Para hacer clic en un objeto 3D, proyectá su posición con `.project(__hypeo.el.camera)`
 (ver `tools/capture.js`).
 
-## Próximos pasos (en orden)
-1. Comparar `captures/studio.png` con `estudio-referencia.png` (ver `docs/comparacion-referencia.png`) y ajustar
-   `js/config.js` (LAYOUT) hasta que coincidan proporciones; revisar también 1280×720.
-2. Test E2E con Playwright: asignar las 5 pistas, quitar una, pausa/reanudar, soltar en personaje incorrecto,
-   FINISH MIX, volver al estudio, NUEVA MEZCLA, RESET. Verificar sin errores en consola y que el visualizador se mueva.
-3. Revisar en visor real (Meta Quest) agarre/soltar con gatillo y grip, mano translúcida, entrar/salir de VR.
-4. Publicar en GitHub Pages (HTTPS) y verificar que cargan modelos, audio y fuentes.
+## Verificación
+
+- `W=1280 H=720 node tools/studio-test.js` prueba el flujo con mouse, las cinco pistas,
+  el visualizador y la carga de recursos.
+- `W=1672 H=941 node tools/capture.js` captura la bienvenida y el estudio para revisar
+  el encuadre contra `estudio-referencia.png`.
+- Pendiente en Meta Quest: agarre y soltado con gatillo y grip, manos translúcidas,
+  entrada y salida de VR conservando la mezcla.
+- Pendiente en GitHub Pages: publicar por HTTPS y verificar modelos, audio y fuentes
+  usando la URL del sitio.

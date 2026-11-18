@@ -72,15 +72,22 @@ python3 tools/make_audio.py assets/audio
 Es un sitio estático con rutas relativas: sirve en una subcarpeta. Ej. GitHub Pages (Settings > Pages > branch `main`, carpeta raíz)
 o Netlify/Vercel arrastrando la carpeta. WebXR requiere HTTPS (o localhost).
 
-## Estado / pendientes (handoff)
+## Pruebas de escritorio y VR
 
-Hecho y verificado en Chromium headless (escritorio): bienvenida, transición al estudio, composición 3D similar a `estudio-referencia.png`,
-modelos/animaciones, carga de audio sin errores de consola.
+Con el servidor local en marcha, instalá Playwright y su Chromium para ejecutar el recorrido de escritorio:
 
-Pendiente:
-1. Seguir ajustando la composición contra `estudio-referencia.png` a 1672×941 y 1280×720 (último ajuste: personajes más chicos, consola más cerca, parlantes visibles).
-2. Probar el recorrido completo con Playwright: asignar las 5 pistas, quitar una, pausar/reanudar, soltar en destino incorrecto, FINISH MIX, volver al estudio, RESET.
-3. Probar en un visor real (Quest): agarre con gatillo/grip, mano translúcida, entrar/salir de VR conservando la mezcla.
-4. Publicar (GitHub Pages) y verificar que cargan modelos, audio y fuentes.
+```bash
+npm install --no-save --no-package-lock playwright
+npx playwright install chromium
+W=1280 H=720 node tools/studio-test.js
+W=1672 H=941 node tools/capture.js
+```
+
+Podés pasar `URL` para probar el sitio servido desde una subcarpeta o una URL de despliegue.
+Las capturas se guardan en `captures/` por defecto.
+La [comparación con la referencia](docs/comparacion-referencia.png) muestra ambos tamaños de escritorio.
+
+En un visor WebXR, verificá que podés entrar y salir de VR, ver las manos translúcidas, agarrar
+y soltar con gatillo y grip, y conservar la mezcla al volver a escritorio.
 
 Atribuciones: A-Frame (MIT), Poppins (SIL OFL), Permanent Marker (Apache 2.0). Audio y modelos: generados por los scripts de este repo.

@@ -118,13 +118,13 @@
       const add = (l, k) => { l.userData.k = k; l.intensity = 0; sc.add(l); this.lights.push(l); return l; };
       add(new THREE.AmbientLight('#3e2c5c'), 0.6);
       add(new THREE.HemisphereLight('#8f78c8', '#140a1c'), 0.45);
-      const key = add(new THREE.DirectionalLight('#fff3ff'), 1.7); key.position.set(0.6, 4.2, 4.5); key.target.position.set(0, 1.8, -2); sc.add(key.target);
-      const fill = add(new THREE.DirectionalLight('#c8b6ff'), 0.5); fill.position.set(-4, 2.5, 2); fill.target.position.set(0, 1.5, -2); sc.add(fill.target);
-      const back = add(new THREE.PointLight('#9a4dff', 0, 9, 1.4), 26); back.position.set(0, 3.4, -3.8);
-      const backL = add(new THREE.PointLight('#c03dff', 0, 7, 1.6), 14); backL.position.set(-2.8, 2.6, -3.2);
-      const backR = add(new THREE.PointLight('#7a3dff', 0, 7, 1.6), 14); backR.position.set(2.8, 2.6, -3.2);
-      const desk = add(new THREE.PointLight('#ff4fb0', 0, 4, 1.6), 3.5); desk.position.set(0, 1.9, 1.3);
-      const logoL = add(new THREE.PointLight('#a64dff', 0, 6, 1.5), 12); logoL.position.set(0, 4.3, -3.2);
+      const key = add(new THREE.DirectionalLight('#fff3ff'), 1.08); key.position.set(0.6, 4.2, 4.5); key.target.position.set(0, 1.8, -2); sc.add(key.target);
+      const fill = add(new THREE.DirectionalLight('#c8b6ff'), 0.35); fill.position.set(-4, 2.5, 2); fill.target.position.set(0, 1.5, -2); sc.add(fill.target);
+      const back = add(new THREE.PointLight('#9a4dff', 0, 9, 1.4), 9); back.position.set(0, 3.4, -3.8);
+      const backL = add(new THREE.PointLight('#c03dff', 0, 7, 1.6), 5); backL.position.set(-2.8, 2.6, -3.2);
+      const backR = add(new THREE.PointLight('#7a3dff', 0, 7, 1.6), 5); backR.position.set(2.8, 2.6, -3.2);
+      const desk = add(new THREE.PointLight('#ff4fb0', 0, 4, 1.6), 0.65); desk.position.set(0, 1.9, 1.3);
+      const logoL = add(new THREE.PointLight('#a64dff', 0, 6, 1.5), 3); logoL.position.set(0, 4.3, -3.2);
       this.lightLevel = 0;
     },
     setLightLevel(k) {
@@ -158,17 +158,17 @@
         this.addTarget('base', cat.id, [base.hit]);
       });
       // logo + subtítulo
-      this.logoGroup = new THREE.Group(); this.logoGroup.position.set(0, 4.42, -4.3); root.add(this.logoGroup);
+      this.logoGroup = new THREE.Group(); this.logoGroup.position.set(0, 4.55, -4.3); this.logoGroup.scale.set(0.88, 0.77, 0.88); root.add(this.logoGroup);
       const sub = B.textPlane(2.6, 0.22, 1024, (ctx, w, h) => {
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.font = B.font(600, 62); if ('letterSpacing' in ctx) ctx.letterSpacing = '8px';
         ctx.fillStyle = '#8f7fb0'; ctx.fillText('CREATE YOUR SOUND', w / 2, h / 2 + 4);
       });
-      sub.position.set(0, 3.42, -4.25); root.add(sub);
+      sub.position.set(0, 3.35, -4.25); root.add(sub);
       // pantallas laterales
-      const sw = 1.56, sh = 0.98;
-      this.leftScreen = B.buildScreen(sw, sh); this.leftScreen.position.set(-2.86, 2.36, -0.75); this.leftScreen.rotation.set(0, 0.36, 0.0);
-      this.rightScreen = B.buildScreen(sw, sh); this.rightScreen.position.set(2.86, 2.36, -0.75); this.rightScreen.rotation.set(0, -0.36, 0.0);
+      const sw = 1.68, sh = 1.15;
+      this.leftScreen = B.buildScreen(sw, sh); this.leftScreen.position.set(-2.88, 2.32, -0.75); this.leftScreen.rotation.set(0, 0.36, 0.0);
+      this.rightScreen = B.buildScreen(sw, sh); this.rightScreen.position.set(2.88, 2.32, -0.75); this.rightScreen.rotation.set(0, -0.36, 0.0);
       root.add(this.leftScreen, this.rightScreen);
       this.status = { text: '', color: '#ffd1f0', until: 0 };
       this.leftText = B.textPlane(sw - 0.12, sh - 0.12, 1024, (ctx, w, h, main, st) => {
@@ -221,7 +221,7 @@
       }
       // parlantes, parcialmente recortados a los lados
       for (const s of [-1, 1]) {
-        const sp = B.buildSpeaker(); sp.position.set(3.45 * s, 0, -0.1); sp.rotation.y = -0.62 * s; root.add(sp);
+        const sp = B.buildSpeaker(); sp.position.set(3.26 * s, 0, -0.1); sp.scale.setScalar(0.88); sp.rotation.y = -0.62 * s; root.add(sp);
         (this.speakers = this.speakers || []).push(sp);
       }
       this.buildButtons();
@@ -235,7 +235,7 @@
     },
 
     buildButtons() {
-      const top = L.consoleTop, z = 1.9;
+      const top = L.consoleTop, z = L.consoleCenter.z + 0.23;
       const mk = (id, w, h, opts, pos) => {
         const b = B.buildButton(w, h, opts);
         b.position.set(pos[0], top + 0.09, pos[1]); b.rotation.x = -0.9; b.scale.setScalar(0.78);
@@ -244,9 +244,9 @@
         b.userData.id = id; b.userData.hover = 0; b.userData.base = 0.78;
         return b;
       };
-      this.btnReset = mk('reset', 0.46, 0.15, { fill: '#17111f', rim: '#9b52ff', text: 'RESET', icon: 'reset', textColor: '#e6dcff' }, [-0.36, z + 0.02]);
-      this.btnPlay = mk('play', 0.52, 0.17, { fill: '#8a2cff', emissive: '#7a22ff', emissiveIntensity: 0.9, rim: '#cf9dff', text: 'PLAY', icon: 'play', textColor: '#ffffff', textGlow: '#ffffff' }, [0.16, z]);
-      this.btnFinish = mk('finish', 0.56, 0.15, { fill: '#2a0f2e', emissive: '#ff3fb4', emissiveIntensity: 0.35, rim: '#ff6fc8', text: 'FINISH MIX', icon: 'flag', textColor: '#ffe3f4', textGlow: '#ff6fc8' }, [0.72, z - 0.1]);
+      this.btnReset = mk('reset', 0.46, 0.15, { fill: '#17111f', rim: '#9b52ff', text: 'RESET', icon: 'reset', textColor: '#e6dcff' }, [-0.23, z + 0.02]);
+      this.btnPlay = mk('play', 0.52, 0.17, { fill: '#8a2cff', emissive: '#7a22ff', emissiveIntensity: 0.9, rim: '#cf9dff', text: 'PLAY', icon: 'play', textColor: '#ffffff', textGlow: '#ffffff' }, [0.29, z]);
+      this.btnFinish = mk('finish', 0.56, 0.15, { fill: '#2a0f2e', emissive: '#ff3fb4', emissiveIntensity: 0.35, rim: '#ff6fc8', text: 'FINISH MIX', icon: 'flag', textColor: '#ffe3f4', textGlow: '#ff6fc8' }, [0.85, z - 0.1]);
       this.btnFinish.rotation.y = -0.28;
       this.btnFinish.visible = false; this.btnFinish.scale.setScalar(0.001); this.btnFinish.userData.base = 0.78;
     },

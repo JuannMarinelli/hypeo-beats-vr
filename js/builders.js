@@ -224,7 +224,7 @@
     const g = new THREE.Group(); root.add(g);
     const c = L.consoleCenter, R = L.consoleRadius, top = L.consoleTop;
     g.position.set(c.x, 0, c.z);
-    const satin = B.mat('#120c19', { roughness: 0.28, metalness: 0.35 });
+    const satin = B.mat('#120c19', { roughness: 0.56, metalness: 0.18, envMapIntensity: 0.35 });
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(R, R - 0.04, 0.1, 128), satin); disc.position.y = top - 0.05; g.add(disc);
     const bevel = new THREE.Mesh(new THREE.TorusGeometry(R - 0.02, 0.035, 12, 128), satin); bevel.rotation.x = Math.PI / 2; bevel.position.y = top - 0.02; g.add(bevel);
     const column = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.55, R * 0.62, top - 0.1, 64), B.mat('#0a0710', { roughness: 0.6 }));
@@ -232,9 +232,11 @@
     const outer = B.neonTorus(R - 0.01, 0.016, C.coral, Math.PI * 2, 1.15, 3.4, 0.2);
     outer.rotation.x = Math.PI / 2; outer.position.y = top + 0.012; g.add(outer);
     const inner = B.neonTorus(0.86, 0.009, C.magenta, Math.PI * 2, 1.0, 3.4, 0.14);
-    inner.rotation.x = Math.PI / 2; inner.position.y = top + 0.004; g.add(inner);
+    inner.rotation.x = Math.PI / 2; inner.scale.set(1.2, 0.65, 1);
+    inner.position.set(0, top + 0.004, -0.33); g.add(inner);
     const groove = new THREE.Mesh(new THREE.RingGeometry(0.9, 0.93, 128), B.mat('#05030a', { roughness: 0.9 }));
-    groove.rotation.x = -Math.PI / 2; groove.position.y = top + 0.002; g.add(groove);
+    groove.rotation.x = -Math.PI / 2; groove.scale.copy(inner.scale);
+    groove.position.set(0, top + 0.002, inner.position.z); g.add(groove);
     return g;
   };
 
@@ -261,9 +263,9 @@
   // ------------------------------------------------------------ pantallas laterales
   B.buildScreen = (w, h) => {
     const g = new THREE.Group();
-    const frame = new THREE.Mesh(B.roundedBox(w + 0.36, h + 0.32, 0.22, 0.18, 0.05), B.mat('#120d18', { roughness: 0.42, metalness: 0.25 }));
+    const frame = new THREE.Mesh(B.roundedBox(w + 0.36, h + 0.32, 0.22, 0.18, 0.05), B.mat('#120d18', { roughness: 0.55, metalness: 0.12, envMapIntensity: 0.3 }));
     frame.position.z = -0.08; g.add(frame);
-    const panel = new THREE.Mesh(new THREE.ShapeGeometry(B.roundedShape(w + 0.04, h + 0.04, 0.1), 12), B.mat('#0b0712', { roughness: 0.25 }));
+    const panel = new THREE.Mesh(new THREE.ShapeGeometry(B.roundedShape(w + 0.04, h + 0.04, 0.1), 12), B.mat('#0b0712', { roughness: 0.7, envMapIntensity: 0.2 }));
     panel.position.z = 0.032; g.add(panel);
     const border = B.neonFrame(w - 0.04, h - 0.04, 0.09, 0.012, C.neon, 1.35);
     border.position.z = 0.04; g.add(border);

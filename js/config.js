@@ -35,11 +35,11 @@ HY.LAYOUT = {
   rig: { x: 0, y: 0, z: 3.0 },
   eyeHeight: 1.6,               // altura efectiva de la cámara en escritorio (el rig queda en y = 0)
   baseVFov: 60,                 // campo visual vertical a 16:9
-  stageTop: 1.0,
-  consoleCenter: { x: 0, z: 1.28 }, consoleTop: 0.9, consoleRadius: 1.72,
-  propRadius: 1.32, propAngles: [-56, -28, 0, 28, 56],
+  stageTop: 1.22,
+  consoleCenter: { x: 0, z: 1.43 }, consoleTop: 0.96, consoleRadius: 1.82,
+  propRadius: 1.38, propAngles: [-62, -32, 0, 32, 62],
   characters: [
-    { x: -1.74, z: -1.78 }, { x: -0.87, z: -2.02 }, { x: 0, z: -2.1 }, { x: 0.87, z: -2.02 }, { x: 1.74, z: -1.78 }
+    { x: -1.83, z: -1.78 }, { x: -0.93, z: -2.02 }, { x: 0, z: -2.1 }, { x: 0.93, z: -2.02 }, { x: 1.83, z: -1.78 }
   ],
-  pedestalTop: 1.56, characterSink: 0.30, characterScale: 0.74, propScale: 1.0
+  pedestalTop: 1.74, characterSink: 0.30, characterScale: 0.74, propScale: 1.0
 };
