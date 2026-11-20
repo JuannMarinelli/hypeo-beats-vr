@@ -5,11 +5,9 @@
   const jazz = [[50, 53, 57, 60], [55, 59, 62, 65], [48, 52, 55, 59], [57, 60, 64, 67]];
   const detroit = [[48, 51, 55], [48, 51, 55, 58], [44, 48, 51], [43, 47, 50]];
   const rkt = [[55, 58, 62], [55, 58, 62], [51, 55, 58], [53, 57, 60]];
-  const house = [[53, 57, 60, 64], [55, 58, 62, 65], [57, 60, 64, 67], [57, 60, 64, 67]];
   const guaracha = [[52, 55, 59], [48, 52, 55], [50, 54, 57], [52, 55, 59]];
   const drill = [[54, 57, 61], [50, 54, 57], [52, 56, 59], [49, 53, 56]];
   const straight = [0, 4, 8, 12];
-  const offbeat = [2, 6, 10, 14];
   const eighths = [0, 2, 4, 6, 8, 10, 12, 14];
   const dembow = [3, 7, 11, 15];
 
@@ -27,8 +25,7 @@
       kick: [0, 6, 10, 15], snare: [6, 14], hats: [0, 3, 6, 9, 11, 13, 15], bass: [0, 6, 10, 13.5], comp: [0, 9], lead: [0, 6, 9, 13], perc: [3, 7, 10, 15] },
     { id: 'rkt', label: 'Rkt', bpm: 104, chords: rkt, kit: [47, .20, 184, 3850, .062], color: .87, sub: .88,
       kick: [0, 3, 4, 8, 10, 12], snare: [3, 6, 11, 15], hats: [0, 2, 6, 8, 10, 14], bass: [0, 3, 6, 8, 10, 14], comp: [1, 4, 7, 10, 14], lead: [0, 3, 8, 13], perc: [1, 5, 7, 9, 13, 15] },
-    { id: 'house', label: 'House', bpm: 126, chords: house, kit: [52, .17, 167, 3050, .10], color: .56, sub: .52,
-      kick: straight, snare: [4, 12], hats: offbeat, bass: [2, 6, 10, 14], comp: [2, 5, 10, 13], lead: [2, 6, 9, 14], perc: [1, 6, 9, 14] },
+    { id: 'house', label: 'House', bpm: 126, bars: 8, color: .56, sub: .52 },
     { id: 'bachata', label: 'Bachata', bpm: 128, chords: latin, kit: [73, .075, 310, 1520, .061], color: .26, sub: .35,
       kick: [0, 8, 12], snare: [4, 7, 10, 12, 15], hats: eighths, bass: [0, 4, 8, 12, 14], comp: eighths, lead: [0, 2, 5, 8, 10, 12, 15], perc: [0, 2, 4, 6, 7, 10, 12, 14] },
     { id: 'guaracha', label: 'Guaracha', bpm: 134, chords: guaracha, kit: [55, .15, 282, 3320, .083], color: .96, sub: .73,
@@ -53,8 +50,8 @@
       ['Caja drill', 'rim'], ['Cuerdas tensas', 'bow'], ['Hi-hat rolls', 'hat'], ['Campanas', 'bell'], ['Pad sombrío', 'pad']],
     rkt: [['Bombo RKT', 'kick'], ['Bajo saturado', 'short808'], ['Teclas RKT', 'organ'], ['Voces picadas', 'chop'],
       ['Caja RKT', 'clap'], ['Cencerro', 'cowbell'], ['Güiro', 'guira'], ['Sinte de bronce', 'trumpet'], ['Sinte filoso', 'lead']],
-    house: [['Kick house', 'kick'], ['Bajo offbeat', 'sub'], ['Piano house', 'piano'], ['Vocal chops', 'chop'],
-      ['Clap house', 'clap'], ['Guitarra disco', 'muted'], ['Hi-hat abierto', 'openhat'], ['Stab filtrado', 'trumpet'], ['Pad disco', 'pad']],
+    house: [['Batería House', 'drumkit'], ['Bajo offbeat', 'sub'], ['Keys de apoyo', 'house-keys'], ['Vocal chops', 'chop'],
+      null, null, null, ['Sinte House', 'house-stab'], ['Pad House', 'house-pad']],
     bachata: [['Bongó', 'bongo'], ['Bajo bachata', 'electric'], ['Requinto', 'requinto'], ['Coro suave', 'harmony'],
       ['Golpes de bongó', 'rim'], ['Guitarra segunda', 'muted'], ['Güira', 'guira'], ['Teclas suaves', 'rhodes'], ['Cuerdas cálidas', 'bow']],
     guaracha: [['Kick guaracha', 'kick'], ['Bajo offbeat', 'short808'], ['Teclas pegadizas', 'organ'], ['Silbidos', 'whistle'],
@@ -67,14 +64,14 @@
     beats: ['kick', 'kit', 'jazzkit'],
     drumkit: ['drumkit'],
     bass: ['sub', '808', 'short808', 'electric', 'glide', 'upright'],
-    melody: ['rhodes', 'piano', 'organ', 'pluck', 'trap-keys'],
+    melody: ['rhodes', 'piano', 'organ', 'pluck', 'trap-keys', 'house-keys'],
     vocals: ['chop', 'harmony', 'scat', 'whistle'],
     fx: ['riser'],
     guitar: ['requinto', 'strings', 'muted', 'bow', 'trap-guitar'],
     brass: ['sax'],
     trumpet: ['trumpet'],
     cymbal: ['hat', 'openhat', 'ride'],
-    synth: ['lead', 'pad', 'bell', 'rhythm-synth', 'trap-synth', 'trap-pad']
+    synth: ['lead', 'pad', 'bell', 'rhythm-synth', 'trap-synth', 'trap-pad', 'house-stab', 'house-pad']
   };
   const propByTimbre = Object.fromEntries(Object.entries(propGroups)
     .flatMap(([prop, timbres]) => timbres.map(timbre => [timbre, prop])));
@@ -88,7 +85,7 @@
     dembow: ['percussion', 'fx', 'beats'],
     drill: ['melody', 'bass', 'guitar'],
     rkt: ['beats', 'melody', 'guitar'],
-    house: ['bass', 'beats', 'percussion'],
+    house: ['bass', 'beats', 'melody'],
     bachata: ['beats', 'melody', 'percussion'],
     guaracha: ['vocals', 'brass', 'melody'],
     jazz: ['bass', 'brass', 'beats']
@@ -202,6 +199,15 @@
         case 'organ':
           return (Math.sin(p) + .62 * Math.sin(p * 2) + .2 * Math.sin(p * 3) + .27 * Math.sin(p * 4)) *
             envelope * (.84 + .16 * Math.sin(t * 23));
+        case 'house-keys':
+          return (Math.sin(p + .9 * Math.exp(-t * 18) * Math.sin(p * 2)) +
+            .2 * Math.sin(p * 3.01) * Math.exp(-t * 32)) * envelope * Math.exp(-t * 12);
+        case 'house-stab':
+          return (.65 * saw(p * .996) + .55 * saw(p * 1.004) + .27 * Math.sin(p * 2) * Math.exp(-t * 12)) *
+            fade(t, duration, .009, .105) * Math.exp(-t * 3.5);
+        case 'house-pad':
+          return (.58 * Math.sin(p * .996) + .48 * Math.sin(p * 1.004) +
+            .15 * Math.sin(2 * p + .21 * Math.sin(t * 9))) * fade(t, duration, .19, .21);
         case 'trap-guitar':
           // Ataque de cuerda pulsada y pérdida rápida de armónicos, con cuerpo de nylon.
           return (.82 * Math.sin(p) + .38 * Math.sin(2.001 * p) * Math.exp(-t * 5.8) +
@@ -244,6 +250,9 @@
       previous = noise;
       filtered += Math.min(.85, brightness / 7900) * (noise - filtered);
       switch (part) {
+        case 'house-kick':
+          return Math.tanh(1.72 * Math.sin(TAU * (low * t + 2.8 * (1 - Math.exp(-t * 75))))) *
+            Math.exp(-3 * t / kickDecay) + .085 * high * Math.exp(-t * 210);
         case 'kick':
           return Math.tanh(1.6 * Math.sin(TAU * (low * t + 4.6 * (1 - Math.exp(-t * 48))))) *
             Math.exp(-3.8 * t / kickDecay) + .11 * noise * Math.exp(-t * 240);
@@ -312,6 +321,12 @@
       levels: { beats: .76, fx: .66, percussion: .48, synth: .067, guitar: .27, brass: .24, vocals: .4 },
       drumPan: { beats: 0, fx: 0, percussion: .30 },
       echo: { melody: [6, .17], brass: [4, .17], guitar: [3, .23] }
+    },
+    house: {
+      events: HY.houseEvents,
+      levels: { beats: .53, bass: .43, melody: .19, vocals: .43, brass: .28, synth: .13 },
+      drumPan: { beats: 0 },
+      echo: { brass: [3, .16] }
     }
   };
 
@@ -321,7 +336,8 @@
     const beat = 60 / bpm;
     const step = beat / 4;
     const stepsPerBar = (genre.beatsPerBar || HY.MUSIC.beatsPerBar) * 4;
-    const length = Math.round(rate * step * stepsPerBar * HY.MUSIC.bars);
+    const bars = genre.bars || HY.MUSIC.bars;
+    const length = Math.round(rate * step * stepsPerBar * bars);
     const buffer = ctx.createBuffer(2, length, rate);
     const left = buffer.getChannelData(0), right = buffer.getChannelData(1);
     const notes = new Map();
@@ -350,7 +366,8 @@
     if (sequence) {
       const level = sequence.levels[id] ?? gains[id];
       const echo = sequence.echo?.[id];
-      for (let bar = 0; bar < HY.MUSIC.bars; bar++) {
+      const kit = genre.id === 'house' ? HY.houseKits[player] : genre.kit;
+      for (let bar = 0; bar < bars; bar++) {
         const events = sequence.events(id, player, bar);
         for (const [index, event] of events.entries()) {
           const start = bar * stepsPerBar + event.step;
@@ -360,7 +377,10 @@
           const part = event.part ?? (id === 'percussion' ? (event.pitches[0] === 46 ? 'openhat' : 'hat') : null);
           if (part) {
             const key = [part, event.length, accent].join('/');
-            add(start, duration, level * velocity, sequence.drumPan[id], key, () => beatSample(part, genre.kit, accent));
+            const hat = part === 'hat' || part === 'openhat';
+            const drumLevel = genre.id === 'house' && hat ? level * .65 : level;
+            const pan = genre.id === 'house' && hat ? .24 : sequence.drumPan[id];
+            add(start, duration, drumLevel * velocity, pan, key, () => beatSample(part, kit, accent));
             continue;
           }
           const volume = level * velocity / Math.sqrt(event.pitches.length);
@@ -374,14 +394,23 @@
           }
         }
       }
+      if (genre.id === 'house' && (id === 'brass' || id === 'synth')) {
+        // Pulso tipo sidechain al comienzo de cada negra.
+        for (let i = 0; i < length; i++) {
+          const phase = (i / (rate * beat)) % 1;
+          const volume = .32 + .68 * Math.min(1, phase / .42);
+          left[i] *= volume;
+          right[i] *= volume;
+        }
+      }
       return buffer;
     }
 
-    for (let bar = 0; bar < HY.MUSIC.bars; bar++) {
+    for (let bar = 0; bar < bars; bar++) {
       const start = bar * stepsPerBar;
       const at = pattern => [...new Set(phrasing(pattern, player, bar, stepsPerBar))].sort((a, b) => a - b);
       const drum = (part, pattern, duration, gain, pan) => {
-        const danceKick = part === 'kick' && ['house', 'guaracha'].includes(genre.id);
+        const danceKick = part === 'kick' && genre.id === 'guaracha';
         const steps = danceKick && player ? [...pattern, 14 + player * .25].sort((a, b) => a - b) : at(pattern);
         steps.forEach((s, i) => {
           const accent = i % 3;

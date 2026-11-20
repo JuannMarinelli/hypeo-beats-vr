@@ -31,7 +31,7 @@ Cada instrumento tiene su propio buffer y cinco interpretaciones, una por person
 | --- | ---: | --- |
 | Reggaeton | 82, 85, 91, 96, 100 (98 inicial) | Batería, bajo sub, keys, sinte rítmico, lead, pad, guitarra, hi-hats y vocal chops |
 | Trap | 145 | 808, keys oscuras, sinte, guitarra, clap / caja, hi-hat rolls y pad oscuro |
-| House | 126 | Kick a negras, bajo al contratiempo, hi-hat abierto y guitarra disco |
+| House | 126 | Batería, bajo al contratiempo, keys de apoyo, sinte, pad y vocal chops |
 | Bachata | 128 | Requinto, guitarra segunda, bongó, güira y bajo |
 
 ### Batería de Reggaeton
@@ -48,6 +48,12 @@ El tempo queda fijo en **145 BPM**. La guitarra toca arpegios con un timbre de n
 
 Los hi-hats conservan un golpe cada dos steps, con rolls distintos por personaje. Clap / caja suena solo en el tercer tiempo de cada compás, junto al quinto y al decimotercer hi-hat base en dos compases. El personaje cambia el timbre.
 
+### Arreglo de House
+
+El loop de ocho compases comparte dos progresiones entre bajo, sinte, pad y keys. Arranca con **Em7–Bm7–Cmaj7–D7**, una versión con séptimas de i–v–VI–VII, y pasa a **Em7–Am7–Bm7–Dm7**, séptimas menores paralelas. El pad sostiene los acordes, el sinte los acentúa y las keys acompañan con golpes cortos. [Future house de Native Instruments](https://blog.native-instruments.com/future-house-music/) · [Armonía paralela de Ableton](https://makingmusic.ableton.com/parallel-harmony)
+
+Una sola batería toca el kick en las cuatro negras, el clap en 2 y 4 y el hi-hat abierto a contratiempo. Los personajes tienen cinco variantes con distintos timbres, hi-hats cerrados y remates. [Patrones de batería de Native Instruments](https://www.native-instruments.com/blogs/blog/drum-patterns)
+
 ## Estructura
 
 | Ruta | Qué es |
@@ -57,7 +63,8 @@ Los hi-hats conservan un golpe cada dos steps, con rolls distintos por personaje
 | `js/config.js` | Instrumentos, colores y posiciones de cámara, personajes y consola |
 | `js/reggaeton-patterns.js` | Secuencias de notas MIDI fijas y voicings de Reggaeton |
 | `js/trap-patterns.js` | Partes MIDI, rolls de hi-hat y timbres de clap para Trap |
-| `js/genre-music.js` | Sintetiza loops de cuatro compases por género, instrumento y personaje |
+| `js/house-patterns.js` | Acordes, acompañamientos y cinco kits de House |
+| `js/genre-music.js` | Sintetiza loops de cuatro u ocho compases por género, instrumento y personaje |
 | `js/audio-engine.js` | Web Audio: reloj musical común, loops en fase, ganancias por pista, analizador para el visualizador |
 | `js/builders.js` | Geometría 3D: sala, escenario, pedestales, consola, pantallas, botones, parlantes, mano VR |
 | `assets/models/*.glb` | Personajes (rig con nombres Mixamo + clips `Idle` y `Dance`), `props.glb` (instrumentos), `logo.glb` |

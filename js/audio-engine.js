@@ -24,7 +24,7 @@
       this.bpm = bpm;
       this.beat = 60 / bpm;
       this.bar = this.beat * (this.genre.beatsPerBar || HY.MUSIC.beatsPerBar);
-      this.loop = this.bar * HY.MUSIC.bars;
+      this.loop = this.bar * (this.genre.bars || HY.MUSIC.bars);
     }
 
     /** Llamar desde el gesto que abre el selector de géneros o desde el botón de VR. */

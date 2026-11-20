@@ -192,14 +192,14 @@ async function main() {
     await phase('studio');
     assert.deepEqual(await page.evaluate(() => [
       __hypeo.S.genre.bpm, __hypeo.instrument('melody').label, __hypeo.engine.cache.size
-    ]), [126, 'Piano house', 0]);
+    ]), [126, 'Keys de apoyo', 0]);
     await count(0);
     await wait(() => Object.values(__hypeo.bases).every(base => base.state === 'home' && base.prop.visible === base.front));
 
     const expectedGenres = [
       ['reggaeton', 98, 4, ['Bajo sub', 'Batería', 'Keys']],
       ['trap', 145, 4, ['Hi-hat rolls', '808', 'Keys oscuras']],
-      ['house', 126, 4, ['Bajo offbeat', 'Kick house', 'Hi-hat abierto']],
+      ['house', 126, 4, ['Bajo offbeat', 'Batería House', 'Keys de apoyo']],
       ['bachata', 128, 4, ['Bongó', 'Requinto', 'Güira']],
     ];
     for (const [genre, bpm, meter, featured] of expectedGenres) {
@@ -228,6 +228,41 @@ async function main() {
         });
       });
       assert.equal(playable, true, genre);
+
+      if (genre === 'house') {
+        const house = await page.evaluate(() => {
+          const game = __hypeo;
+          return {
+            slots: game.S.genre.carouselOrder,
+            bars: game.engine.loop / game.engine.bar,
+            kits: HY.CHARACTERS.map((_, player) => HY.houseEvents('beats', player, 3)),
+            keys: HY.houseEvents('melody', 0, 0),
+            pads: Array.from({ length: 8 }, (_, bar) => HY.houseEvents('synth', 0, bar)[0].pitches)
+          };
+        });
+        assert.equal(house.bars, 8);
+        assert.equal(house.slots.length, 6);
+        for (const id of ['fx', 'percussion', 'guitar']) assert.ok(!house.slots.includes(id));
+        assert.equal(new Set(house.kits.map(kit => JSON.stringify(kit))).size, 5);
+        for (const kit of house.kits) {
+          assert.deepEqual(kit.filter(event => event.part === 'house-kick').map(event => event.step), [0, 4, 8, 12]);
+          assert.deepEqual(kit.filter(event => event.part.endsWith('clap')).map(event => event.step), [4, 12]);
+          assert.deepEqual(kit.filter(event => event.part === 'openhat').map(event => event.step), [2, 6, 10, 14]);
+        }
+        assert.ok(house.keys.every(event => event.pitches.length === 3));
+        assert.deepEqual(house.pads[1], [47, 50, 54, 57]);
+        assert.deepEqual(house.pads[5], [57, 60, 64, 67]);
+
+        const seen = new Set();
+        for (let turn = 0; turn < house.slots.length; turn++) {
+          const front = await page.evaluate(() => Object.keys(__hypeo.bases).filter(id => __hypeo.bases[id].prop.visible));
+          assert.equal(front.length, 3);
+          front.forEach(id => seen.add(id));
+          await click('button', 'rotate-left');
+          await platformIdle();
+        }
+        assert.deepEqual([...seen].sort(), [...house.slots].sort());
+      }
 
       if (genre === 'trap') {
         const patterns = await page.evaluate(() => HY.CHARACTERS.map((_, player) => ({
@@ -293,14 +328,14 @@ async function main() {
           await click('char', character);
           await count(character === 'fx' ? 0 : 1);
         }
-      } else {
+      } else if (genre !== 'house') {
         assert.equal(await page.evaluate(() => __hypeo.S.genre.carouselOrder.length), 9);
       }
     }
 
     for (const asset of [...characters.map(id => `${id}.glb`), 'props.glb', 'logo.glb',
       'Poppins-800.woff2', 'Poppins-600.woff2', 'PermanentMarker.woff2',
-      'reggaeton-patterns.js', 'trap-patterns.js', 'moscow-mule.wav', 'perro-negro.wav', 'velda.wav', 'la-noche-de-anoche.wav', 'lo-siento-bb.wav']) {
+      'reggaeton-patterns.js', 'trap-patterns.js', 'house-patterns.js', 'moscow-mule.wav', 'perro-negro.wav', 'velda.wav', 'la-noche-de-anoche.wav', 'lo-siento-bb.wav']) {
       assert.ok(assets.has(asset), `Missing asset response: ${asset}`);
     }
     assert.deepEqual(errors, []);

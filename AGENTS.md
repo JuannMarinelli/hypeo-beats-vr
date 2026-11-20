@@ -12,7 +12,7 @@ Referencia visual del estudio: `estudio-referencia.png` (1672×941). Hoja de per
 - No modificar los `.glb` a mano: se regeneran con `blender/hypeo_characters.py`
   (`pip install bpy` en Python 3.13 funciona sin Blender instalado:
   `python -c "import sys; sys.argv=['x','--','--out','assets/models']; exec(open('blender/hypeo_characters.py').read())"`).
-- Audio: `js/genre-music.js` genera loops de 4 compases al BPM de cada género, en 4/4 o 5/4 según el estilo. `tools/make_audio.py` regenera los WAV de la versión original.
+- Audio: `js/genre-music.js` genera loops de 4 compases (8 en House) al BPM de cada género, en 4/4 o 5/4 según el estilo. `tools/make_audio.py` regenera los WAV de la versión original.
 - Pedido explícito del usuario: los personajes **sin instrumento quedan quietos**; con instrumento bailan **al ritmo del beat**
   (clip `Dance` de 1 compás, tiempo calculado desde `engine.position` en `script.js` → `tick`).
 - Textos de la interfaz en español rioplatense (vos), salvo los rótulos del diseño (PLAY, RESET, FINISH MIX, BEATS…).

@@ -296,6 +296,7 @@
     positionCarousel() {
       this.carouselRotor.rotation.y = this.carouselAngle;
       const visible = this.S.phase === 'studio';
+      const frontThreshold = Math.min(.70, Math.cos(this.carouselStep + .025));
       const { z, radius, lift } = L.carousel;
       for (const base of Object.values(this.bases)) {
         const angle = base.index * this.carouselStep + this.carouselAngle;
@@ -303,7 +304,7 @@
         const depth = z + Math.cos(angle) * radius;
         base.group.position.set(x, L.consoleTop + lift, depth);
         base.home.set(x, L.consoleTop + lift + .092, depth);
-        base.front = base.index >= 0 && Math.cos(angle) >= .70;
+        base.front = base.index >= 0 && Math.cos(angle) >= frontThreshold;
         base.group.visible = visible && base.front;
         if (!base.prop) continue;
         if (base.state === 'home') base.prop.position.copy(base.home);
