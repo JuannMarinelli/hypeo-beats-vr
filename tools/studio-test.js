@@ -198,7 +198,7 @@ async function main() {
 
     const expectedGenres = [
       ['reggaeton', 98, 4, ['Bajo sub', 'Batería', 'Keys']],
-      ['trap', 150, 4, ['Hi-hat rolls', '808', 'Campanas']],
+      ['trap', 145, 4, ['Hi-hat rolls', '808', 'Keys oscuras']],
       ['house', 126, 4, ['Bajo offbeat', 'Kick house', 'Hi-hat abierto']],
       ['bachata', 128, 4, ['Bongó', 'Requinto', 'Güira']],
     ];
@@ -228,6 +228,32 @@ async function main() {
         });
       });
       assert.equal(playable, true, genre);
+
+      if (genre === 'trap') {
+        const patterns = await page.evaluate(() => HY.CHARACTERS.map((_, player) => ({
+          bars: Array.from({ length: 4 }, (_, bar) => ({
+            hats: HY.trapEvents('percussion', player, bar).map(event => event.step),
+            claps: HY.trapEvents('fx', player, bar)
+          }))
+        })));
+        const rolls = new Set();
+        const timbres = new Set();
+        for (const { bars } of patterns) {
+          for (const { hats, claps } of bars) {
+            assert.deepEqual(hats.filter(step => step % 2 === 0), [0, 2, 4, 6, 8, 10, 12, 14]);
+            assert.ok(hats.length > 8 && hats.every(step => step >= 0 && step < 16));
+            assert.deepEqual(claps.map(({ part, ...event }) => event), [
+              { step: 4, length: 1.6, velocity: 109 },
+              { step: 12, length: 1.6, velocity: 109 }
+            ]);
+            assert.equal(claps[0].part, claps[1].part);
+          }
+          rolls.add(JSON.stringify(bars.map(({ hats }) => hats)));
+          timbres.add(bars[0].claps[0].part);
+        }
+        assert.equal(rolls.size, 5);
+        assert.equal(timbres.size, 5);
+      }
 
       if (genre === 'reggaeton') {
         const loops = ['moscow-mule', 'perro-negro', 'velda', 'la-noche-de-anoche', 'lo-siento-bb'];
@@ -275,7 +301,7 @@ async function main() {
 
     for (const asset of [...characters.map(id => `${id}.glb`), 'props.glb', 'logo.glb',
       'Poppins-800.woff2', 'Poppins-600.woff2', 'PermanentMarker.woff2',
-      'reggaeton-patterns.js', 'moscow-mule.wav', 'perro-negro.wav', 'velda.wav', 'la-noche-de-anoche.wav', 'lo-siento-bb.wav']) {
+      'reggaeton-patterns.js', 'trap-patterns.js', 'moscow-mule.wav', 'perro-negro.wav', 'velda.wav', 'la-noche-de-anoche.wav', 'lo-siento-bb.wav']) {
       assert.ok(assets.has(asset), `Missing asset response: ${asset}`);
     }
     assert.deepEqual(errors, []);

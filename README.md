@@ -30,7 +30,7 @@ Cada instrumento tiene su propio buffer y cinco interpretaciones, una por person
 | Género | BPM | Sonidos del estudio |
 | --- | ---: | --- |
 | Reggaeton | 82, 85, 91, 96, 100 (98 inicial) | Batería, bajo sub, keys, sinte rítmico, lead, pad, guitarra, hi-hats y vocal chops |
-| Trap | 150 | 808, campanas, clap, hi-hat rolls y pad oscuro |
+| Trap | 145 | 808, keys oscuras, sinte, guitarra, clap / caja, hi-hat rolls y pad oscuro |
 | House | 126 | Kick a negras, bajo al contratiempo, hi-hat abierto y guitarra disco |
 | Bachata | 128 | Requinto, guitarra segunda, bongó, güira y bajo |
 
@@ -42,6 +42,10 @@ Al asignar la batería de izquierda a derecha en el escenario suenan Moscow Mule
 
 Las partes de cuatro compases comparten **C–Am–Em–D (VI–iv–i–VII en mi menor)**. El pad conserva las inversiones de la pista de acordes del MIDI de referencia. Las keys y el sinte rítmico acentúan el dembow, mientras que la guitarra entra a contratiempo, el bajo alterna fundamentales y respuestas, y el lead y los vocal chops tienen frases propias. Cada personaje interpreta una variante fija. [The Sonic Secrets](https://thesonicsecrets.com/songwriting/latin-chord-progressions/) · [Native Instruments](https://www.native-instruments.com/blogs/blog/reggaeton) · [Splice](https://splice.com/blog/how-to-make-basslines/)
 
+### Arreglo de Trap
+
+El tempo queda fijo en **145 BPM**. Las keys, el sinte y la guitarra tocan motivos en **fa menor** sobre **Fm–Dbmaj7–Bbm–C**, con un pad suave de fondo. Los hi-hats conservan un golpe cada dos steps y cada personaje agrega su propio roll dentro de esa corchea. Clap / caja suena en los tiempos 2 y 4, separados por ocho steps. El personaje elige el timbre. [Guía de trap de Native Instruments](https://www.native-instruments.com/blogs/blog/how-to-make-a-trap-beat) · [Guía de latin trap](https://www.native-instruments.com/blogs/blog/latin-trap)
+
 ## Estructura
 
 | Ruta | Qué es |
@@ -50,6 +54,7 @@ Las partes de cuatro compases comparten **C–Am–Em–D (VI–iv–i–VII en 
 | `script.js` | Lógica del juego: estados, interacción mouse/VR, animación sincronizada, flujo bienvenida/estudio/resultado |
 | `js/config.js` | Instrumentos, colores y posiciones de cámara, personajes y consola |
 | `js/reggaeton-patterns.js` | Secuencias de notas MIDI fijas y voicings de Reggaeton |
+| `js/trap-patterns.js` | Partes MIDI, rolls de hi-hat y timbres de clap para Trap |
 | `js/genre-music.js` | Sintetiza loops de cuatro compases por género, instrumento y personaje |
 | `js/audio-engine.js` | Web Audio: reloj musical común, loops en fase, ganancias por pista, analizador para el visualizador |
 | `js/builders.js` | Geometría 3D: sala, escenario, pedestales, consola, pantallas, botones, parlantes, mano VR |

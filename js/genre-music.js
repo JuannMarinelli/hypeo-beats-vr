@@ -3,7 +3,6 @@
   const soul = [[57, 60, 64, 67], [50, 53, 57, 60], [55, 59, 62, 65], [48, 52, 55, 59]];
   const latin = [[57, 60, 64], [55, 59, 62], [53, 57, 60], [52, 56, 59]];
   const jazz = [[50, 53, 57, 60], [55, 59, 62, 65], [48, 52, 55, 59], [57, 60, 64, 67]];
-  const trap = [[54, 57, 61], [54, 57, 61, 64], [50, 54, 57], [49, 53, 56]];
   const detroit = [[48, 51, 55], [48, 51, 55, 58], [44, 48, 51], [43, 47, 50]];
   const rkt = [[55, 58, 62], [55, 58, 62], [51, 55, 58], [53, 57, 60]];
   const house = [[53, 57, 60, 64], [55, 58, 62, 65], [57, 60, 64, 67], [57, 60, 64, 67]];
@@ -17,8 +16,7 @@
   // Cada género combina su propio kit, articulación, armonía y ritmos por instrumento.
   HY.GENRES = [
     { id: 'reggaeton', label: 'Reggaeton', bpm: 98, kit: [51, .17, 170, 2750, .075], color: .62, sub: .65 },
-    { id: 'trap', label: 'Trap', bpm: 150, chords: trap, kit: [45, .24, 202, 2500, .043], color: .43, sub: .98,
-      kick: [0, 6, 11], snare: [8], hats: [...eighths, 13, 15, 15.5], bass: [0, 6, 11, 14], comp: [0, 10], lead: [0, 3, 10, 14], perc: [3, 7, 13] },
+    { id: 'trap', label: 'Trap', bpm: 145, kit: [45, .24, 202, 2500, .043], color: .43, sub: .98 },
     { id: 'rnb', label: 'R&B', bpm: 96, chords: soul, kit: [49, .14, 152, 1730, .083], color: .28, sub: .42, swing: .22,
       kick: [0, 5, 10, 15], snare: [4, 12], hats: eighths, bass: [0, 5, 10, 13], comp: [0, 7, 12], lead: [2, 6, 11, 13], perc: [3, 8, 14] },
     { id: 'detroit', label: 'Detroit', bpm: 190, chords: detroit, kit: [56, .14, 213, 3590, .055], color: .78, sub: .84,
@@ -43,8 +41,8 @@
   const palettes = {
     reggaeton: [['Batería', 'drumkit'], ['Bajo sub', 'sub'], ['Keys', 'pluck'], ['Vocal chops', 'chop'],
       ['Sinte rítmico', 'rhythm-synth'], ['Guitarra mute', 'muted'], ['Hi-hats', 'hat'], ['Lead', 'lead'], ['Pad', 'pad']],
-    trap: [['Kick trap', 'kick'], ['808', '808'], ['Campanas', 'bell'], ['Vocal chops', 'chop'],
-      ['Clap', 'clap'], ['Guitarra', 'strings'], ['Hi-hat rolls', 'hat'], ['Metales', 'trumpet'], ['Pad oscuro', 'pad']],
+    trap: [['Kick trap', 'kick'], ['808', '808'], ['Keys oscuras', 'trap-keys'], ['Vocal chops', 'chop'],
+      ['Clap / caja', 'clap'], ['Guitarra', 'strings'], ['Hi-hat rolls', 'hat'], ['Sinte oscuro', 'trap-synth'], ['Pad oscuro', 'trap-pad']],
     rnb: [['Drum machine', 'kit'], ['Bajo redondo', 'electric'], ['Rhodes', 'rhodes'], ['Armonías', 'harmony'],
       ['Snap', 'snap'], ['Guitarra limpia', 'strings'], ['Shaker', 'shaker'], ['Lead retro', 'lead'], ['Pad analógico', 'pad']],
     detroit: [['Kick Detroit', 'kick'], ['808 corto', 'short808'], ['Piano Detroit', 'piano'], ['Ad-libs', 'chop'],
@@ -69,14 +67,14 @@
     beats: ['kick', 'kit', 'jazzkit'],
     drumkit: ['drumkit'],
     bass: ['sub', '808', 'short808', 'electric', 'glide', 'upright'],
-    melody: ['rhodes', 'piano', 'organ', 'pluck'],
+    melody: ['rhodes', 'piano', 'organ', 'pluck', 'trap-keys'],
     vocals: ['chop', 'harmony', 'scat', 'whistle'],
     fx: ['riser'],
     guitar: ['requinto', 'strings', 'muted', 'bow'],
     brass: ['sax'],
     trumpet: ['trumpet'],
     cymbal: ['hat', 'openhat', 'ride'],
-    synth: ['lead', 'pad', 'bell', 'rhythm-synth']
+    synth: ['lead', 'pad', 'bell', 'rhythm-synth', 'trap-synth', 'trap-pad']
   };
   const propByTimbre = Object.fromEntries(Object.entries(propGroups)
     .flatMap(([prop, timbres]) => timbres.map(timbre => [timbre, prop])));
@@ -204,6 +202,15 @@
         case 'organ':
           return (Math.sin(p) + .62 * Math.sin(p * 2) + .2 * Math.sin(p * 3) + .27 * Math.sin(p * 4)) *
             envelope * (.84 + .16 * Math.sin(t * 23));
+        case 'trap-keys':
+          return (Math.sin(p + .95 * Math.exp(-t * 14) * Math.sin(2.17 * p)) +
+            .18 * Math.sin(2.002 * p) * Math.exp(-t * 12)) * envelope * Math.exp(-t * 5.8);
+        case 'trap-synth':
+          return (.85 * Math.sin(p + .13 * Math.sin(t * 22)) + .22 * Math.sin(3 * p) * Math.exp(-t * 9) +
+            .27 * Math.sin(p * 1.008)) * fade(t, duration, .036, .09);
+        case 'trap-pad':
+          return (.65 * Math.sin(p * .996) + .5 * Math.sin(p * 1.004) + .11 * Math.sin(p * 2)) *
+            fade(t, duration, .25, .25);
         case 'rhythm-synth':
           return (Math.sin(p + 1.1 * Math.exp(-t * 9) * Math.sin(2 * p)) + .22 * Math.sin(p * 2.005)) *
             envelope * Math.exp(-t * 5.5);
@@ -237,6 +244,12 @@
           return (noise - filtered) * .72 * (
             Math.exp(-t * 80) + (t >= .013 ? Math.exp(-(t - .013) * 92) : 0) +
             (t >= .025 ? Math.exp(-(t - .025) * 34) : 0));
+        case 'tight-clap':
+          return (.65 * high * Math.exp(-t * 69) + .37 * (noise - filtered) *
+            (t >= .009 ? Math.exp(-(t - .009) * 42) : 0));
+        case '808-snare':
+          return (.54 * high * Math.exp(-t * 48) + .61 * Math.sin(TAU * (snare * .86 * t + .32 * (1 - Math.exp(-t * 92)))) *
+            Math.exp(-t * 40)) * Math.exp(-t * 13);
         case 'rim':
           return (.62 * Math.sin(TAU * snare * 2.3 * t) + .43 * high * Math.exp(-t * 43)) * Math.exp(-t * 58);
         case 'snap':
@@ -282,6 +295,15 @@
   const gains = { bass: .48, melody: .29, guitar: .38, vocals: .6, brass: .27, synth: .19, fx: .24 };
   const panning = { bass: 0, melody: -.22, guitar: -.35, vocals: .12, brass: .27, synth: .15 };
 
+  const sequencedGenres = {
+    reggaeton: { events: HY.reggaetonEvents, levels: { percussion: .46 }, drumPan: { percussion: .31 } },
+    trap: {
+      events: HY.trapEvents,
+      levels: { beats: .76, fx: .66, percussion: .48, synth: .067, guitar: .27, brass: .24, vocals: .4 },
+      drumPan: { beats: 0, fx: 0, percussion: .30 }
+    }
+  };
+
   HY.renderTrack = (ctx, genre, id, player, bpm = genre.bpm) => {
     const timbre = genre.instruments[id].timbre;
     const rate = 24000;
@@ -313,21 +335,23 @@
       }
     };
 
-    if (genre.id === 'reggaeton') {
+    const sequence = sequencedGenres[genre.id];
+    if (sequence) {
+      const level = sequence.levels[id] ?? gains[id];
       for (let bar = 0; bar < HY.MUSIC.bars; bar++) {
-        const events = HY.reggaetonEvents(id, player, bar);
+        const events = sequence.events(id, player, bar);
         for (const [index, event] of events.entries()) {
           const start = bar * stepsPerBar + event.step;
           const duration = step * event.length;
           const velocity = event.velocity / 127;
-          const accent = index % 4;
-          if (id === 'percussion') {
-            const part = event.pitches[0] === 46 ? 'openhat' : 'hat';
-            add(start, duration, .46 * velocity, .31, [part, event.length, accent].join('/'),
-              () => beatSample(part, genre.kit, accent));
+          const accent = genre.id === 'trap' && id === 'fx' ? 0 : index % 4;
+          const part = event.part ?? (id === 'percussion' ? (event.pitches[0] === 46 ? 'openhat' : 'hat') : null);
+          if (part) {
+            const key = [part, event.length, accent].join('/');
+            add(start, duration, level * velocity, sequence.drumPan[id], key, () => beatSample(part, genre.kit, accent));
             continue;
           }
-          const volume = gains[id] * velocity / Math.sqrt(event.pitches.length);
+          const volume = level * velocity / Math.sqrt(event.pitches.length);
           const pan = id === 'fx' ? .26 : panning[id];
           for (const [string, pitch] of event.pitches.entries()) {
             const strum = id === 'guitar' ? string * .12 : 0;
