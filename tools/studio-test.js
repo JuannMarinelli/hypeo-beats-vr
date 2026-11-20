@@ -164,15 +164,28 @@ async function main() {
 
     await click('button', 'finish');
     const nameInput = page.getByRole('textbox', { name: 'Ponele un nombre a tu beat' });
-    await nameInput.fill('Mi canción 2026');
+    const keyboard = page.getByRole('group', { name: 'Teclado en pantalla' });
+    const key = label => keyboard.getByRole('button', { name: label, exact: true }).click();
+    for (const label of ['Mayús', 'M', 'Mayús', 'i', 'Espacio', 'ñ', 'á', 'Espacio', '2', '0', 'Borrar']) {
+      await key(label);
+    }
+    assert.equal(await nameInput.inputValue(), 'Mi ñá 2');
     await page.getByRole('button', { name: 'Guardar nombre' }).click();
     await phase('result');
-    assert.deepEqual(await page.evaluate(() => [__hypeo.S.name, __hypeo.engine.playing]), ['Mi canción 2026', true]);
+    assert.deepEqual(await page.evaluate(() => [__hypeo.S.name, __hypeo.engine.playing]), ['Mi ñá 2', true]);
+
+    await click('button', 'res-rename');
+    for (const label of ['s', 'o', 'l']) await key(label);
+    assert.equal(await nameInput.inputValue(), 'sol');
+    await page.getByRole('button', { name: 'Guardar nombre' }).click();
+    await phase('result');
+    assert.equal(await page.evaluate(() => __hypeo.S.name), 'sol');
+
     await click('button', 'res-rename');
     await nameInput.fill('Título descartado');
     await page.getByRole('button', { name: 'Volver', exact: true }).click();
     await phase('result');
-    assert.equal(await page.evaluate(() => __hypeo.S.name), 'Mi canción 2026');
+    assert.equal(await page.evaluate(() => __hypeo.S.name), 'sol');
     await click('button', 'res-back');
     await phase('studio');
     await count(4);

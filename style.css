@@ -66,7 +66,7 @@ body.in-vr #enter-vr {
 
 #mix-name-dialog {
     box-sizing: border-box;
-    width: min(420px, calc(100% - 32px));
+    width: min(520px, calc(100% - 24px));
     padding: 26px;
     border: 2px solid #aa65ff;
     border-radius: 22px;
@@ -124,4 +124,59 @@ body.in-vr #enter-vr {
 #mix-name-form :focus-visible {
     outline: 2px solid #f4c3ff;
     outline-offset: 3px;
+}
+
+.mix-name-keyboard {
+    display: grid;
+    gap: 6px;
+}
+
+.mix-name-row {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+}
+
+.mix-name-row button {
+    flex: 0 1 40px;
+    min-width: 0;
+    min-height: 38px;
+    padding: 0;
+    border: 1px solid #7953a3;
+    border-radius: 7px;
+    background: #30194a;
+    color: #fff;
+    cursor: pointer;
+    font: 600 .96rem "Poppins", Arial, sans-serif;
+    touch-action: manipulation;
+}
+
+.mix-name-row button:hover,
+.mix-name-row button[aria-pressed="true"] {
+    border-color: #d5a6ff;
+    background: #5a2c89;
+}
+
+.mix-name-row button:active {
+    background: #7628c8;
+}
+
+.mix-name-edit button {
+    flex-basis: 76px;
+    padding: 0 8px;
+    font-size: .82rem;
+}
+
+.mix-name-edit button[data-key="space"] {
+    flex-basis: 160px;
+}
+
+@media (max-width: 540px) {
+    #mix-name-dialog {
+        padding: 16px;
+    }
+
+    .mix-name-row {
+        gap: 3px;
+    }
 }

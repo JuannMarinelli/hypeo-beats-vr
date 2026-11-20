@@ -7,6 +7,7 @@
   const byId = Object.fromEntries(INSTRUMENTS.map(instrument => [instrument.id, instrument]));
   const menuGenres = GENRES.filter(genre => ['reggaeton', 'trap', 'house', 'bachata'].includes(genre.id));
   const genreById = Object.fromEntries(menuGenres.map(genre => [genre.id, genre]));
+  const nameRows = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKLÑ', 'ZXCVBNM', 'ÁÉÍÓÚÜ-'];
   const ease = { out: t => 1 - Math.pow(1 - t, 3), inOut: t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
     back: t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); } };
 
@@ -646,13 +647,42 @@
     buildNaming() {
       this.nameDialog = document.getElementById('mix-name-dialog');
       this.nameInput = document.getElementById('mix-name');
-      this.nameInput.addEventListener('input', () => { this.nameDraft = this.nameInput.value; });
+      this.nameInput.addEventListener('input', () => {
+        this.nameDraft = this.nameInput.value;
+        this.replaceName = false;
+      });
       document.getElementById('mix-name-form').addEventListener('submit', e => {
         e.preventDefault();
         this.saveName();
       });
       this.nameDialog.addEventListener('cancel', e => { e.preventDefault(); this.cancelNaming(); });
       document.getElementById('mix-name-back').addEventListener('click', () => this.cancelNaming());
+
+      const desktopKeyboard = document.getElementById('mix-name-keyboard');
+      const desktopKey = (row, id, label = id) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.key = id;
+        button.textContent = label;
+        button.addEventListener('click', event => {
+          this.nameAction(id);
+          if (event.detail && id !== 'shift') this.nameInput.focus();
+        });
+        row.append(button);
+      };
+      for (const letters of nameRows) {
+        const row = document.createElement('div');
+        row.className = 'mix-name-row';
+        for (const letter of letters) desktopKey(row, letter);
+        desktopKeyboard.append(row);
+      }
+      const actions = document.createElement('div');
+      actions.className = 'mix-name-row mix-name-edit';
+      desktopKey(actions, 'shift', 'Mayús');
+      desktopKey(actions, 'space', 'Espacio');
+      desktopKey(actions, 'delete', 'Borrar');
+      desktopKeyboard.append(actions);
+      this.desktopNameKeys = [...desktopKeyboard.querySelectorAll('button')];
 
       const panel = this.nameKeyboard = new THREE.Group();
       panel.position.copy(this.result.position);
@@ -673,7 +703,7 @@
       panel.add(this.namePreview);
 
       const key = (id, text, x, y, width = .16) => {
-        const b = B.buildButton(width, .112, { fill: '#30164a', rim: '#a46ae1', text, textColor: '#fff' });
+        const b = B.buildButton(width, .101, { fill: '#30164a', rim: '#a46ae1', text, textColor: '#fff' });
         b.position.set(x, y, .085);
         b.userData.id = 'name-' + id;
         b.userData.hover = 0;
@@ -681,18 +711,22 @@
         this.addTarget('button', b.userData.id, [b.userData.body]);
         this.nameKeys.push(b);
       };
-      ['1234567890', 'QWERTYUIOP', 'ASDFGHJKLÑ', 'ZXCVBNM'].forEach((row, i) => {
-        [...row].forEach((letter, j) => key(letter, letter, (j - (row.length - 1) / 2) * .18, .19 - i * .14));
+      nameRows.forEach((row, i) => {
+        [...row].forEach((letter, j) => key(letter, letter, (j - (row.length - 1) / 2) * .18, .21 - i * .116));
       });
-      key('cancel', 'Volver', -.77, -.42, .34);
-      key('space', 'Espacio', -.33, -.42, .48);
-      key('delete', 'Borrar', .12, -.42, .36);
-      key('save', 'Guardar nombre', .66, -.42, .67);
+      key('cancel', 'Volver', -.85, -.415, .28);
+      key('shift', 'Mayús', -.53, -.415, .29);
+      key('space', 'Espacio', -.16, -.415, .38);
+      key('delete', 'Borrar', .22, -.415, .32);
+      key('save', 'Guardar nombre', .71, -.415, .58);
     },
 
     beginNaming(from) {
       this.nameReturn = from;
       this.nameDraft = this.S.name || this.makeName();
+      this.nameUppercase = false;
+      this.replaceName = true;
+      this.redrawNameKeys();
       this.setPhase('naming');
     },
 
@@ -712,13 +746,50 @@
       if (naming && vr) this.namePreview.userData.canvas.redraw(this.nameDraft);
     },
 
+    redrawNameKeys() {
+      for (const button of this.desktopNameKeys) {
+        const key = button.dataset.key;
+        if (key === 'shift') button.setAttribute('aria-pressed', String(this.nameUppercase));
+        if (key.length === 1) button.textContent = this.nameUppercase ? key : key.toLowerCase();
+      }
+      for (const button of this.nameKeys) {
+        const key = button.userData.id.slice(5);
+        if (key.length !== 1 && key !== 'shift') continue;
+        const label = key === 'shift' ? (this.nameUppercase ? 'MAYÚS' : 'Mayús') :
+          this.nameUppercase ? key : key.toLowerCase();
+        button.userData.label.userData.canvas.redraw(label);
+      }
+    },
+
     nameAction(key) {
-      if (this.S.phase !== 'naming') return;
+      if (this.S.phase !== 'naming' || this._lock) return;
       if (key === 'cancel') return this.cancelNaming();
       if (key === 'save') return this.saveName();
-      if (key === 'delete') this.nameDraft = this.nameDraft.slice(0, -1);
-      else if (this.nameDraft.length < 40) this.nameDraft += key === 'space' ? ' ' : key;
-      this.namePreview.userData.canvas.redraw(this.nameDraft);
+      if (key === 'shift') {
+        this.nameUppercase = !this.nameUppercase;
+        this.redrawNameKeys();
+        return;
+      }
+
+      const text = key === 'space' ? ' ' : this.nameUppercase ? key : key.toLowerCase();
+      if (this.nameDialog.open) {
+        const input = this.nameInput;
+        let start = input.selectionStart;
+        const end = input.selectionEnd;
+        if (key === 'delete') {
+          if (start === end) start -= ([...input.value.slice(0, start)].at(-1) || '').length;
+          input.setRangeText('', start, end, 'end');
+        } else if (input.value.length - (end - start) + text.length <= input.maxLength) {
+          input.setRangeText(text, start, end, 'end');
+        }
+        this.nameDraft = input.value;
+      } else {
+        const draft = this.replaceName ? '' : this.nameDraft;
+        if (key === 'delete') this.nameDraft = [...draft].slice(0, -1).join('');
+        else if (draft.length + text.length <= this.nameInput.maxLength) this.nameDraft = draft + text;
+        this.namePreview.userData.canvas.redraw(this.nameDraft);
+      }
+      this.replaceName = false;
     },
 
     cancelNaming() {
