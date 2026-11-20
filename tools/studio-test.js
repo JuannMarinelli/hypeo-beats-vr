@@ -243,10 +243,9 @@ async function main() {
             assert.deepEqual(hats.filter(step => step % 2 === 0), [0, 2, 4, 6, 8, 10, 12, 14]);
             assert.ok(hats.length > 8 && hats.every(step => step >= 0 && step < 16));
             assert.deepEqual(claps.map(({ part, ...event }) => event), [
-              { step: 4, length: 1.6, velocity: 109 },
-              { step: 12, length: 1.6, velocity: 109 }
+              { step: 8, length: 1.6, velocity: 109 }
             ]);
-            assert.equal(claps[0].part, claps[1].part);
+            assert.ok(hats.includes(claps[0].step));
           }
           rolls.add(JSON.stringify(bars.map(({ hats }) => hats)));
           timbres.add(bars[0].claps[0].part);

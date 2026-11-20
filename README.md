@@ -44,7 +44,9 @@ Las partes de cuatro compases comparten **C–Am–Em–D (VI–iv–i–VII en 
 
 ### Arreglo de Trap
 
-El tempo queda fijo en **145 BPM**. Las keys, el sinte y la guitarra tocan motivos en **fa menor** sobre **Fm–Dbmaj7–Bbm–C**, con un pad suave de fondo. Los hi-hats conservan un golpe cada dos steps y cada personaje agrega su propio roll dentro de esa corchea. Clap / caja suena en los tiempos 2 y 4, separados por ocho steps. El personaje elige el timbre. [Guía de trap de Native Instruments](https://www.native-instruments.com/blogs/blog/how-to-make-a-trap-beat) · [Guía de latin trap](https://www.native-instruments.com/blogs/blog/latin-trap)
+El tempo queda fijo en **145 BPM**. La guitarra toca arpegios con un timbre de nylon y un eco corto, inspirados en la producción acústica de Turbo para Gunna. Las otras melodías usan un motivo de piano y campana, respuestas de sinte y un pad discreto inspirado en las texturas de Metro Boomin. Comparten la progresión **Fm–Dbmaj7–Bbm–C**. [Turbo sobre su producción para Gunna](https://hypebeast.com/2024/8/turbo-producer-series-interview-gunna) · [Metro Boomin trabajando en el estudio](https://www.thefader.com/2016/04/12/metro-boomin-cover-story-interview)
+
+Los hi-hats conservan un golpe cada dos steps, con rolls distintos por personaje. Clap / caja suena solo en el tercer tiempo de cada compás, junto al quinto y al decimotercer hi-hat base en dos compases. El personaje cambia el timbre.
 
 ## Estructura
 

@@ -42,7 +42,7 @@
     reggaeton: [['Batería', 'drumkit'], ['Bajo sub', 'sub'], ['Keys', 'pluck'], ['Vocal chops', 'chop'],
       ['Sinte rítmico', 'rhythm-synth'], ['Guitarra mute', 'muted'], ['Hi-hats', 'hat'], ['Lead', 'lead'], ['Pad', 'pad']],
     trap: [['Kick trap', 'kick'], ['808', '808'], ['Keys oscuras', 'trap-keys'], ['Vocal chops', 'chop'],
-      ['Clap / caja', 'clap'], ['Guitarra', 'strings'], ['Hi-hat rolls', 'hat'], ['Sinte oscuro', 'trap-synth'], ['Pad oscuro', 'trap-pad']],
+      ['Clap / caja', 'clap'], ['Guitarra', 'trap-guitar'], ['Hi-hat rolls', 'hat'], ['Sinte oscuro', 'trap-synth'], ['Pad oscuro', 'trap-pad']],
     rnb: [['Drum machine', 'kit'], ['Bajo redondo', 'electric'], ['Rhodes', 'rhodes'], ['Armonías', 'harmony'],
       ['Snap', 'snap'], ['Guitarra limpia', 'strings'], ['Shaker', 'shaker'], ['Lead retro', 'lead'], ['Pad analógico', 'pad']],
     detroit: [['Kick Detroit', 'kick'], ['808 corto', 'short808'], ['Piano Detroit', 'piano'], ['Ad-libs', 'chop'],
@@ -70,7 +70,7 @@
     melody: ['rhodes', 'piano', 'organ', 'pluck', 'trap-keys'],
     vocals: ['chop', 'harmony', 'scat', 'whistle'],
     fx: ['riser'],
-    guitar: ['requinto', 'strings', 'muted', 'bow'],
+    guitar: ['requinto', 'strings', 'muted', 'bow', 'trap-guitar'],
     brass: ['sax'],
     trumpet: ['trumpet'],
     cymbal: ['hat', 'openhat', 'ride'],
@@ -202,15 +202,25 @@
         case 'organ':
           return (Math.sin(p) + .62 * Math.sin(p * 2) + .2 * Math.sin(p * 3) + .27 * Math.sin(p * 4)) *
             envelope * (.84 + .16 * Math.sin(t * 23));
+        case 'trap-guitar':
+          // Ataque de cuerda pulsada y pérdida rápida de armónicos, con cuerpo de nylon.
+          return (.82 * Math.sin(p) + .38 * Math.sin(2.001 * p) * Math.exp(-t * 5.8) +
+            .24 * Math.sin(3.006 * p) * Math.exp(-t * 13) +
+            .12 * Math.sin(5.022 * p) * Math.exp(-t * 34)) *
+            fade(t, duration, .004, .086) * Math.exp(-t * 2.9);
         case 'trap-keys':
-          return (Math.sin(p + .95 * Math.exp(-t * 14) * Math.sin(2.17 * p)) +
-            .18 * Math.sin(2.002 * p) * Math.exp(-t * 12)) * envelope * Math.exp(-t * 5.8);
-        case 'trap-synth':
-          return (.85 * Math.sin(p + .13 * Math.sin(t * 22)) + .22 * Math.sin(3 * p) * Math.exp(-t * 9) +
-            .27 * Math.sin(p * 1.008)) * fade(t, duration, .036, .09);
+          return (.74 * Math.sin(p + .86 * Math.exp(-t * 10) * Math.sin(2 * p)) +
+            .25 * Math.sin(2.003 * p) * Math.exp(-t * 9) +
+            .13 * Math.sin(3.83 * p) * Math.exp(-t * 21)) * envelope * Math.exp(-t * 4.7);
+        case 'trap-synth': {
+          const phase = p - 2 * Math.exp(-t * 36) + .13 * Math.sin(t * 24);
+          return (Math.sin(phase) + .29 * Math.sin(3 * phase) * Math.exp(-t * 7) +
+            .27 * Math.sin(p * 1.008)) * fade(t, duration, .033, .11);
+        }
         case 'trap-pad':
-          return (.65 * Math.sin(p * .996) + .5 * Math.sin(p * 1.004) + .11 * Math.sin(p * 2)) *
-            fade(t, duration, .25, .25);
+          return (.65 * Math.sin(p * .996) + .5 * Math.sin(p * 1.004) +
+            .16 * Math.sin(2 * p + .25 * Math.sin(t * 6)) + .075 * Math.sin(3 * p)) *
+            fade(t, duration, .28, .29);
         case 'rhythm-synth':
           return (Math.sin(p + 1.1 * Math.exp(-t * 9) * Math.sin(2 * p)) + .22 * Math.sin(p * 2.005)) *
             envelope * Math.exp(-t * 5.5);
@@ -300,7 +310,8 @@
     trap: {
       events: HY.trapEvents,
       levels: { beats: .76, fx: .66, percussion: .48, synth: .067, guitar: .27, brass: .24, vocals: .4 },
-      drumPan: { beats: 0, fx: 0, percussion: .30 }
+      drumPan: { beats: 0, fx: 0, percussion: .30 },
+      echo: { melody: [6, .17], brass: [4, .17], guitar: [3, .23] }
     }
   };
 
@@ -338,6 +349,7 @@
     const sequence = sequencedGenres[genre.id];
     if (sequence) {
       const level = sequence.levels[id] ?? gains[id];
+      const echo = sequence.echo?.[id];
       for (let bar = 0; bar < HY.MUSIC.bars; bar++) {
         const events = sequence.events(id, player, bar);
         for (const [index, event] of events.entries()) {
@@ -356,7 +368,9 @@
           for (const [string, pitch] of event.pitches.entries()) {
             const strum = id === 'guitar' ? string * .12 : 0;
             const key = [pitch, event.length, accent].join('/');
-            add(start + strum, duration, volume, pan, key, () => voice(timbre, pitch, duration, genre, accent));
+            const sample = () => voice(timbre, pitch, duration, genre, accent);
+            add(start + strum, duration, volume, pan, key, sample);
+            if (echo) add(start + strum + echo[0], duration, volume * echo[1], -pan, key, sample);
           }
         }
       }
