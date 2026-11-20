@@ -69,8 +69,7 @@ async function main() {
     await click('button', 'start');
     await phase('genres');
     const menus = await page.evaluate(() => __hypeo.genreButtons.map(button => button.userData.id));
-    assert.deepEqual(menus, ['genre-reggaeton', 'genre-trap', 'genre-rnb', 'genre-detroit', 'genre-dembow',
-      'genre-drill', 'genre-rkt', 'genre-house', 'genre-bachata', 'genre-guaracha', 'genre-jazz', 'genre-back']);
+    assert.deepEqual(menus, ['genre-reggaeton', 'genre-trap', 'genre-house', 'genre-bachata', 'genre-back']);
     await click('button', 'genre-back');
     await phase('welcome');
     await click('button', 'start');
@@ -189,26 +188,19 @@ async function main() {
     assert.equal(await page.evaluate(() => __hypeo.chars.fx.instrument), 'beats');
     await click('button', 'genres');
     await phase('genres');
-    await click('button', 'genre-detroit');
+    await click('button', 'genre-house');
     await phase('studio');
     assert.deepEqual(await page.evaluate(() => [
       __hypeo.S.genre.bpm, __hypeo.instrument('melody').label, __hypeo.engine.cache.size
-    ]), [190, 'Piano Detroit', 0]);
+    ]), [126, 'Piano house', 0]);
     await count(0);
     await wait(() => Object.values(__hypeo.bases).every(base => base.state === 'home' && base.prop.visible === base.front));
 
     const expectedGenres = [
       ['reggaeton', 98, 4, ['Bajo sub', 'Batería', 'Keys']],
       ['trap', 150, 4, ['Hi-hat rolls', '808', 'Campanas']],
-      ['rnb', 96, 4, ['Guitarra limpia', 'Rhodes', 'Armonías']],
-      ['detroit', 190, 4, ['Caja seca', 'Piano Detroit', '808 corto']],
-      ['dembow', 115, 4, ['Güira', 'Caja dembow', 'Kick dembow']],
-      ['drill', 144, 4, ['Piano oscuro', '808 con glide', 'Cuerdas tensas']],
-      ['rkt', 104, 4, ['Bombo RKT', 'Teclas RKT', 'Cencerro']],
       ['house', 126, 4, ['Bajo offbeat', 'Kick house', 'Hi-hat abierto']],
       ['bachata', 128, 4, ['Bongó', 'Requinto', 'Güira']],
-      ['guaracha', 134, 4, ['Silbidos', 'Trompetas', 'Teclas pegadizas']],
-      ['jazz', 132, 5, ['Contrabajo', 'Saxo', 'Batería con ride']]
     ];
     for (const [genre, bpm, meter, featured] of expectedGenres) {
       await click('button', 'genres');

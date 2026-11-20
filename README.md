@@ -1,7 +1,7 @@
 # HYPEO BEATS · estudio musical 3D / VR
 
 Experiencia web (A-Frame 1.6, HTML/CSS/JS estático): bienvenida → selección de género → estudio → "Tu creación".
-Tocá **JUGAR** y elegí Reggaeton, Trap, R&B, Detroit, Dembow, Drill, Rkt, House, Bachata, Guaracha o Jazz. Cada género tiene su propio BPM, arreglo y paleta de instrumentos. Las pistas se preparan individualmente y se sincronizan al reloj de la mezcla.
+Tocá **JUGAR** y elegí Reggaeton, Trap, House o Bachata. Cada género tiene su propio BPM, arreglo y paleta de instrumentos. Las pistas se preparan individualmente y se sincronizan al reloj de la mezcla.
 Girá la plataforma y arrastrá cualquier instrumento a cualquiera de los cinco personajes. Cada personaje toca una variante rítmica distinta. Podés reemplazar el instrumento de un personaje sin detener la mezcla.
 
 ## Ejecutar en local
@@ -31,15 +31,8 @@ Cada instrumento tiene su propio buffer y cinco interpretaciones, una por person
 | --- | ---: | --- |
 | Reggaeton | 82, 85, 91, 96, 100 (98 inicial) | Batería, bajo sub, keys, sinte rítmico, lead, pad, guitarra, hi-hats y vocal chops |
 | Trap | 150 | 808, campanas, clap, hi-hat rolls y pad oscuro |
-| R&B | 96 | Rhodes, bajo redondo, armonías, snap y lead retro |
-| Detroit | 190 | Piano percusivo, 808 corto, caja seca y stabs |
-| Dembow | 115 | Kick y caja dembow, güira, campana, metales y coro picado |
-| Drill | 144 | 808 con glide, piano oscuro, hi-hat rolls y cuerdas |
-| Rkt | 104 | Bombo, bajo saturado, cencerro, güiro y voces picadas |
 | House | 126 | Kick a negras, bajo al contratiempo, hi-hat abierto y guitarra disco |
 | Bachata | 128 | Requinto, guitarra segunda, bongó, güira y bajo |
-| Guaracha | 134 | Trompetas, teclas, bajo al contratiempo, silbidos y FX de subida |
-| Jazz | 132 (5/4) | Contrabajo, piano, saxo, escobillas, ride y scat |
 
 ### Batería de Reggaeton
 

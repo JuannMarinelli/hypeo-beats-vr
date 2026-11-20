@@ -5,7 +5,8 @@
   const THREE = AFRAME.THREE;
   const { CHARACTERS, INSTRUMENTS, GENRES, LAYOUT: L, COLORS: C, B } = HY;
   const byId = Object.fromEntries(INSTRUMENTS.map(instrument => [instrument.id, instrument]));
-  const genreById = Object.fromEntries(GENRES.map(genre => [genre.id, genre]));
+  const menuGenres = GENRES.filter(genre => ['reggaeton', 'trap', 'house', 'bachata'].includes(genre.id));
+  const genreById = Object.fromEntries(menuGenres.map(genre => [genre.id, genre]));
   const ease = { out: t => 1 - Math.pow(1 - t, 3), inOut: t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
     back: t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); } };
 
@@ -494,13 +495,13 @@
     buildGenreMenu() {
       const panel = this.genreMenu;
       panel.position.set(0, 1.62, -0.7);
-      panel.add(B.buildScreen(2.82, 1.92));
+      panel.add(B.buildScreen(2.65, 1.60));
       const title = B.textPlane(2.55, 0.23, 1024, (ctx, w, h) => {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         B.glowText(ctx, 'Elegí un género', w / 2, h / 2, B.font(800, 76), '#ffffff', C.neon, 18);
       });
-      title.position.set(0, 0.72, 0.07);
+      title.position.set(0, 0.55, 0.07);
       panel.add(title);
       this.genreHint = B.textPlane(2.58, .16, 1024, (ctx, w, h, message) => {
         ctx.textAlign = 'center';
@@ -508,11 +509,11 @@
         B.glowText(ctx, message || 'Cambiar de género inicia una mezcla nueva', w / 2, h / 2,
           B.font(600, 38), '#e3ceff', null);
       });
-      this.genreHint.position.set(0, -.79, .07);
+      this.genreHint.position.set(0, -.65, .07);
       panel.add(this.genreHint);
 
       const add = (id, text, x, y, back = false) => {
-        const button = B.buildButton(.79, .23, {
+        const button = B.buildButton(back ? .68 : 1.08, back ? .18 : .25, {
           fill: back ? '#17111f' : '#361759', emissive: '#7a22ff', emissiveIntensity: back ? .1 : .42,
           rim: '#ba73ff', text, textColor: '#ffffff'
         });
@@ -524,9 +525,9 @@
         return button;
       };
 
-      this.genreButtons = GENRES.map((genre, i) =>
-        add('genre-' + genre.id, genre.label, (i % 3 - 1) * .90, .36 - Math.floor(i / 3) * .32));
-      this.genreButtons.push(add('genre-back', 'Volver', .90, -.60, true));
+      this.genreButtons = menuGenres.map((genre, i) =>
+        add('genre-' + genre.id, genre.label, i % 2 === 0 ? -.61 : .61, .20 - Math.floor(i / 2) * .33));
+      this.genreButtons.push(add('genre-back', 'Volver', 0, -.43, true));
     },
 
     // ------------------------------------------------------------ resultado
