@@ -241,9 +241,14 @@ async function main() {
         const loops = ['moscow-mule', 'perro-negro', 'velda', 'la-noche-de-anoche', 'lo-siento-bb'];
         assert.deepEqual(await page.evaluate(() => [
           __hypeo.S.genre.carouselOrder.length,
-          __hypeo.bases.fx.group.visible,
+          __hypeo.instrument('fx').label,
+          __hypeo.instrument('brass').label,
           __hypeo.instrument('beats').shape
-        ]), [8, false, 'drumkit']);
+        ]), [9, 'Sinte rítmico', 'Lead', 'drumkit']);
+
+        const voicings = await page.evaluate(() => Array.from({ length: 4 }, (_, bar) =>
+          HY.reggaetonEvents('synth', 0, bar)[0].pitches));
+        assert.deepEqual(voicings, [[60, 64, 67], [60, 64, 69], [59, 64, 67], [62, 66, 69]]);
 
         const tempos = [100, 96, 91, 82, 85];
         await drag('bass', 'fx');
@@ -278,7 +283,7 @@ async function main() {
 
     for (const asset of [...characters.map(id => `${id}.glb`), 'props.glb', 'logo.glb',
       'Poppins-800.woff2', 'Poppins-600.woff2', 'PermanentMarker.woff2',
-      'moscow-mule.wav', 'perro-negro.wav', 'velda.wav', 'la-noche-de-anoche.wav', 'lo-siento-bb.wav']) {
+      'reggaeton-patterns.js', 'moscow-mule.wav', 'perro-negro.wav', 'velda.wav', 'la-noche-de-anoche.wav', 'lo-siento-bb.wav']) {
       assert.ok(assets.has(asset), `Missing asset response: ${asset}`);
     }
     assert.deepEqual(errors, []);

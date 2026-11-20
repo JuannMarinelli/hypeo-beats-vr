@@ -1,6 +1,5 @@
 /* Patrones de cuatro compases. Cada posición de un patrón es una semicorchea. */
 (function () {
-  const minor = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]];
   const soul = [[57, 60, 64, 67], [50, 53, 57, 60], [55, 59, 62, 65], [48, 52, 55, 59]];
   const latin = [[57, 60, 64], [55, 59, 62], [53, 57, 60], [52, 56, 59]];
   const jazz = [[50, 53, 57, 60], [55, 59, 62, 65], [48, 52, 55, 59], [57, 60, 64, 67]];
@@ -17,8 +16,7 @@
 
   // Cada género combina su propio kit, articulación, armonía y ritmos por instrumento.
   HY.GENRES = [
-    { id: 'reggaeton', label: 'Reggaeton', bpm: 98, chords: minor, kit: [51, .17, 170, 2750, .075], color: .62, sub: .65,
-      kick: straight, snare: [3, 6, 11, 14], hats: offbeat, bass: [0, 6, 8, 14], comp: [2, 6, 10, 14], lead: [0, 5, 8, 11], perc: [2, 5, 9, 13] },
+    { id: 'reggaeton', label: 'Reggaeton', bpm: 98, kit: [51, .17, 170, 2750, .075], color: .62, sub: .65 },
     { id: 'trap', label: 'Trap', bpm: 150, chords: trap, kit: [45, .24, 202, 2500, .043], color: .43, sub: .98,
       kick: [0, 6, 11], snare: [8], hats: [...eighths, 13, 15, 15.5], bass: [0, 6, 11, 14], comp: [0, 10], lead: [0, 3, 10, 14], perc: [3, 7, 13] },
     { id: 'rnb', label: 'R&B', bpm: 96, chords: soul, kit: [49, .14, 152, 1730, .083], color: .28, sub: .42, swing: .22,
@@ -44,7 +42,7 @@
   // Los IDs de pista son estables. El timbre y el orden en la plataforma dependen del género.
   const palettes = {
     reggaeton: [['Batería', 'drumkit'], ['Bajo sub', 'sub'], ['Keys', 'pluck'], ['Vocal chops', 'chop'],
-      null, ['Guitarra mute', 'muted'], ['Hi-hats', 'hat'], ['Sinte lead', 'lead'], ['Pad', 'pad']],
+      ['Sinte rítmico', 'rhythm-synth'], ['Guitarra mute', 'muted'], ['Hi-hats', 'hat'], ['Lead', 'lead'], ['Pad', 'pad']],
     trap: [['Kick trap', 'kick'], ['808', '808'], ['Campanas', 'bell'], ['Vocal chops', 'chop'],
       ['Clap', 'clap'], ['Guitarra', 'strings'], ['Hi-hat rolls', 'hat'], ['Metales', 'trumpet'], ['Pad oscuro', 'pad']],
     rnb: [['Drum machine', 'kit'], ['Bajo redondo', 'electric'], ['Rhodes', 'rhodes'], ['Armonías', 'harmony'],
@@ -78,7 +76,7 @@
     brass: ['sax'],
     trumpet: ['trumpet'],
     cymbal: ['hat', 'openhat', 'ride'],
-    synth: ['lead', 'pad', 'bell']
+    synth: ['lead', 'pad', 'bell', 'rhythm-synth']
   };
   const propByTimbre = Object.fromEntries(Object.entries(propGroups)
     .flatMap(([prop, timbres]) => timbres.map(timbre => [timbre, prop])));
@@ -206,6 +204,9 @@
         case 'organ':
           return (Math.sin(p) + .62 * Math.sin(p * 2) + .2 * Math.sin(p * 3) + .27 * Math.sin(p * 4)) *
             envelope * (.84 + .16 * Math.sin(t * 23));
+        case 'rhythm-synth':
+          return (Math.sin(p + 1.1 * Math.exp(-t * 9) * Math.sin(2 * p)) + .22 * Math.sin(p * 2.005)) *
+            envelope * Math.exp(-t * 5.5);
         case 'lead':
           return (saw(p + .17 * Math.sin(t * 29)) + .35 * saw(p * 1.006)) * fade(t, duration, .008, .058);
         case 'bow':
@@ -312,11 +313,37 @@
       }
     };
 
+    if (genre.id === 'reggaeton') {
+      for (let bar = 0; bar < HY.MUSIC.bars; bar++) {
+        const events = HY.reggaetonEvents(id, player, bar);
+        for (const [index, event] of events.entries()) {
+          const start = bar * stepsPerBar + event.step;
+          const duration = step * event.length;
+          const velocity = event.velocity / 127;
+          const accent = index % 4;
+          if (id === 'percussion') {
+            const part = event.pitches[0] === 46 ? 'openhat' : 'hat';
+            add(start, duration, .46 * velocity, .31, [part, event.length, accent].join('/'),
+              () => beatSample(part, genre.kit, accent));
+            continue;
+          }
+          const volume = gains[id] * velocity / Math.sqrt(event.pitches.length);
+          const pan = id === 'fx' ? .26 : panning[id];
+          for (const [string, pitch] of event.pitches.entries()) {
+            const strum = id === 'guitar' ? string * .12 : 0;
+            const key = [pitch, event.length, accent].join('/');
+            add(start + strum, duration, volume, pan, key, () => voice(timbre, pitch, duration, genre, accent));
+          }
+        }
+      }
+      return buffer;
+    }
+
     for (let bar = 0; bar < HY.MUSIC.bars; bar++) {
       const start = bar * stepsPerBar;
       const at = pattern => [...new Set(phrasing(pattern, player, bar, stepsPerBar))].sort((a, b) => a - b);
       const drum = (part, pattern, duration, gain, pan) => {
-        const danceKick = part === 'kick' && ['reggaeton', 'house', 'guaracha'].includes(genre.id);
+        const danceKick = part === 'kick' && ['house', 'guaracha'].includes(genre.id);
         const steps = danceKick && player ? [...pattern, 14 + player * .25].sort((a, b) => a - b) : at(pattern);
         steps.forEach((s, i) => {
           const accent = i % 3;
