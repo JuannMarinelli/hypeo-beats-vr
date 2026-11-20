@@ -108,6 +108,26 @@ async function main() {
     await wait(bars => __hypeo._lv.some(level => level > 0.1) &&
       __hypeo.bars.some((bar, i) => Math.abs(bar.scale.y - bars[i]) > 0.015), bars);
 
+    const blueInstrument = await page.evaluate(() => __hypeo.chars.vocals.instrument);
+    await click('button', 'mixer');
+    await phase('mixer');
+    await click('button', 'mix-down-3');
+    await wait(() => Math.abs(__hypeo.engine.channels[3].gain.gain.value - .9) < .01);
+    await click('button', 'mix-mute-3');
+    await wait(() => __hypeo.engine.channels[3].gain.gain.value < .01);
+    assert.deepEqual(await page.evaluate(() => [
+      __hypeo.chars.vocals.instrument,
+      __hypeo.engine.isAudible(__hypeo.chars.vocals.instrument),
+      __hypeo.engine.isAudible(__hypeo.chars.beats.instrument),
+      __hypeo.engine.activeCount()
+    ]), [blueInstrument, false, true, 5]);
+    await click('button', 'mix-mute-3');
+    await wait(() => Math.abs(__hypeo.engine.channels[3].gain.gain.value - .9) < .01);
+    await click('button', 'mix-up-3');
+    await wait(() => Math.abs(__hypeo.engine.channels[3].gain.gain.value - 1) < .01);
+    await click('button', 'mix-close');
+    await phase('studio');
+
     await click('char', 'melody');
     await count(4);
     await wait(() => __hypeo.chars.melody.danceW === 0 && __hypeo.bases.percussion.state === 'home');

@@ -5,6 +5,7 @@
       this.ctx = null;
       this.cache = new Map();
       this.tracks = new Map();
+      this.channels = HY.CHARACTERS.map(() => ({ volume: 1, muted: false }));
       this.playing = false;
       this.t0 = 0;
       this.pausedAt = 0;
@@ -38,6 +39,11 @@
         this.bus.connect(comp);
         comp.connect(this.analyser);
         this.analyser.connect(ctx.destination);
+        for (const channel of this.channels) {
+          channel.gain = ctx.createGain();
+          channel.gain.gain.value = channel.muted ? 0 : channel.volume;
+          channel.gain.connect(this.bus);
+        }
       }
       if (this.ctx.state !== 'running') {
         try { await this.ctx.resume(); } catch (_) { /* se reintenta en el próximo gesto */ }
@@ -64,7 +70,7 @@
       source.buffer = this.bufferFor(id, track.player);
       source.loop = true;
       source.connect(gain);
-      gain.connect(this.bus);
+      gain.connect(this.channels[track.player].gain);
       source.onended = () => { source.disconnect(); gain.disconnect(); };
 
       // Algunas duraciones ideales caen entre dos muestras; ajustá el buffer al reloj.
@@ -132,15 +138,28 @@
       this.startTrack(id, track, when);
     }
 
+    setChannel(player, volume, muted) {
+      const channel = this.channels[player];
+      channel.volume = Math.max(0, Math.min(1, volume));
+      channel.muted = muted;
+      if (!channel.gain) return;
+      const now = this.ctx.currentTime;
+      channel.gain.gain.cancelScheduledValues(now);
+      channel.gain.gain.setTargetAtTime(muted ? 0 : channel.volume, now, .012);
+    }
+
     clear() {
       this.pause();
       this.tracks.clear();
       this.pausedAt = 0;
+      this.channels.forEach((_, player) => this.setChannel(player, 1, false));
     }
 
     isAudible(id) {
       const track = this.tracks.get(id);
-      return this.playing && !!track?.source && this.ctx.currentTime >= track.when;
+      if (!this.playing || !track?.source || this.ctx.currentTime < track.when) return false;
+      const channel = this.channels[track.player];
+      return !channel.muted && channel.volume > 0;
     }
 
     activeCount() { return this.tracks.size; }

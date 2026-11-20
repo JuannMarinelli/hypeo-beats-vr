@@ -20,6 +20,7 @@ Abrir http://localhost:8080/ (URL **local**). No hay dependencias remotas: A-Fra
 
 - **Plataforma**. Tocá ◀ o ▶ con el mouse o los mandos. Con mouse o trackpad también podés usar la rueda. Los instrumentos aparecen de a tres al frente. Cada género empieza con tres sonidos representativos en la plataforma.
 - **Géneros**. Volvé al selector desde el estudio. Si volvés al mismo género recuperás tu mezcla. Si elegís otro se inicia una mezcla nueva.
+- **MEZCLADOR**. Usá − o + para ajustar el volumen de cada personaje con instrumento. Tocá MUTE para silenciarlo y ACTIVAR para volver a oírlo con el volumen que tenía. Funciona con mouse y mandos VR.
 - **FINISH MIX**. Escribí un título con el teclado o usá el teclado 3D en VR. Podés editarlo desde el resultado.
 
 ## Paletas y tempo

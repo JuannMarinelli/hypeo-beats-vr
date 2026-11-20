@@ -72,6 +72,7 @@
       this.buildWelcome();
       this.buildGenreMenu();
       this.buildResult();
+      this.buildMixer();
       this.buildNaming();
       this.buildFade();
       this.setupPointers();
@@ -282,7 +283,8 @@
       this.btnRotateLeft = mk('rotate-left', .31, .17, navigation('‹'), [-1.07, 1.18]);
       this.btnRotateRight = mk('rotate-right', .31, .17, navigation('›'), [1.07, 1.18]);
       this.btnGenres = mk('genres', .52, .16, navigation('GÉNEROS'), [-.81, z - .08]);
-      this.studioButtons = [this.btnReset, this.btnPlay, this.btnRotateLeft, this.btnRotateRight, this.btnGenres];
+      this.btnMixer = mk('mixer', .52, .16, navigation('MEZCLADOR'), [.78, z + .15]);
+      this.studioButtons = [this.btnReset, this.btnPlay, this.btnRotateLeft, this.btnRotateRight, this.btnGenres, this.btnMixer];
       this.btnFinish.rotation.y = -0.28;
       this.btnFinish.visible = false; this.btnFinish.scale.setScalar(0.001); this.btnFinish.userData.base = 0.78;
     },
@@ -552,6 +554,90 @@
       g.visible = false;
     },
 
+    buildMixer() {
+      const panel = this.mixerPanel = new THREE.Group();
+      panel.position.set(0, 1.75, .8);
+      panel.add(B.buildScreen(2.48, 1.55));
+      this.el.object3D.add(panel);
+      this.mixerButtons = [];
+
+      const text = (width, height, x, y, draw) => {
+        const label = B.textPlane(width, height, 640, draw);
+        label.position.set(x, y, .078);
+        panel.add(label);
+        return label;
+      };
+      const control = (id, label, x, y, width) => {
+        const button = B.buildButton(width, .137, { fill: '#30164a', rim: '#ad6cff', text: label, textColor: '#fff' });
+        button.position.set(x, y, .092);
+        Object.assign(button.userData, { id, hover: 0 });
+        panel.add(button);
+        this.addTarget('button', id, [button.userData.body]);
+        this.mixerButtons.push(button);
+        return button;
+      };
+      text(1.5, .20, -.35, .585, (ctx, w, h) => {
+        ctx.textBaseline = 'middle';
+        B.glowText(ctx, 'Mezclador', 14, h / 2, B.font(800, 65), '#fff', C.neon, 12);
+      });
+      control('mix-close', 'VOLVER', .87, .585, .52);
+
+      const names = ['Violeta', 'Rosa', 'Amarillo', 'Azul', 'Verde'];
+      this.mixerRows = CHARACTERS.map((character, index) => {
+        const y = .333 - index * .209;
+        const name = text(.92, .18, -.675, y, (ctx, w, h, instrument) => {
+          ctx.fillStyle = byId[character].color;
+          ctx.beginPath();
+          ctx.arc(19, h / 2, 13, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.textBaseline = 'middle';
+          ctx.font = B.font(800, 42);
+          ctx.fillStyle = '#fff';
+          ctx.fillText(names[index], 52, h * .29);
+          ctx.font = B.font(600, 35);
+          ctx.fillStyle = instrument ? '#ead9ff' : '#ab9abb';
+          ctx.fillText(instrument || 'Sin instrumento', 52, h * .74, w - 62);
+        });
+        const down = control('mix-down-' + index, '−', .015, y, .17);
+        const up = control('mix-up-' + index, '+', .525, y, .17);
+        const mute = control('mix-mute-' + index, 'MUTE', .925, y, .46);
+        const volume = text(.29, .125, .27, y, (ctx, w, h, value) => {
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          B.glowText(ctx, value || '—', w / 2, h / 2, B.font(800, 147), '#fff', null);
+        });
+        return { character, name, down, up, mute, volume };
+      });
+    },
+
+    redrawMixer() {
+      this.mixerRows.forEach((row, index) => {
+        const id = this.chars[row.character].instrument;
+        const channel = this.engine.channels[index];
+        row.name.userData.canvas.redraw(id && this.instrument(id).label);
+        row.volume.userData.canvas.redraw(id && Math.round(channel.volume * 100) + '%');
+        row.mute.userData.label.userData.canvas.redraw(channel.muted ? 'ACTIVAR' : 'MUTE');
+        row.mute.userData.body.material.color.set(channel.muted ? '#802454' : '#30164a');
+        for (const button of [row.down, row.up, row.mute]) button.visible = !!id;
+      });
+    },
+
+    mixerAction(id) {
+      if (id === 'mix-close') {
+        this.setPhase('studio');
+        this.updateFinish();
+        return;
+      }
+      const [, action, key] = id.split('-');
+      const player = Number(key);
+      if (!this.chars[CHARACTERS[player]]?.instrument) return;
+      const { volume, muted } = this.engine.channels[player];
+      const step = action === 'up' ? .1 : -.1;
+      this.engine.setChannel(player, action === 'mute' ? volume : Math.round((volume + step) * 10) / 10,
+        action === 'mute' ? !muted : muted);
+      this.redrawMixer();
+    },
+
     buildNaming() {
       this.nameDialog = document.getElementById('mix-name-dialog');
       this.nameInput = document.getElementById('mix-name');
@@ -662,7 +748,9 @@
       this.welcome.visible = p === 'welcome';
       this.genreMenu.visible = p === 'genres';
       this.genreHint.visible = this.engine.activeCount() > 0;
-      this.studio.visible = p === 'studio' || p === 'result' || p === 'naming';
+      this.studio.visible = p === 'studio' || p === 'result' || p === 'naming' || p === 'mixer';
+      this.mixerPanel.visible = p === 'mixer';
+      if (p === 'mixer') this.redrawMixer();
       this.result.visible = p === 'result';
       const studioUI = p === 'studio';
       this.carousel.visible = studioUI;
@@ -725,6 +813,7 @@
         if (t.id === 'start') return p === 'welcome';
         if (t.id.startsWith('genre-')) return p === 'genres';
         if (t.id.startsWith('res-')) return p === 'result';
+        if (t.id.startsWith('mix-')) return p === 'mixer';
         if (t.id.startsWith('name-')) return p === 'naming' && this.nameKeyboard.visible;
         if (t.id === 'finish') return p === 'studio' && this.btnFinish.visible && this.btnFinish.scale.x > 0.4;
         return p === 'studio';
@@ -1007,9 +1096,10 @@
 
     button(id) {
       const S = this.S, E = this.engine;
-      const btn = [...this.studioButtons, this.btnStart, this.btnFinish, this.resPlay, this.resBack, this.resNew, this.resRename, ...this.genreButtons, ...this.nameKeys].find(b => b.userData.id === id);
+      const btn = [...this.studioButtons, this.btnStart, this.btnFinish, this.resPlay, this.resBack, this.resNew, this.resRename, ...this.genreButtons, ...this.nameKeys, ...this.mixerButtons].find(b => b.userData.id === id);
       if (btn) { btn.userData.press = 1; }
       if (this._lock) return;
+      if (S.phase === 'mixer' && id.startsWith('mix-')) return this.mixerAction(id);
       if (id.startsWith('name-')) return this.nameAction(id.slice(5));
       if (id.startsWith('genre-') && S.phase === 'genres') {
         if (id === 'genre-back') return S.genre ? this.startStudio(S.genre) : this.setPhase('welcome');
@@ -1040,6 +1130,9 @@
           if (this.lightMotion) this.lightMotion.dead = true;
           this.setLightLevel(.55);
           return this.setPhase('genres');
+        case 'mixer':
+          this.cancelHeld();
+          return this.setPhase('mixer');
         case 'reset': return this.reset();
         case 'finish': return this.finish();
         case 'res-rename': return this.beginNaming('result');
@@ -1234,7 +1327,7 @@
         for (const sp of this.speakers) for (const key in sp.userData) if (key.startsWith('cone')) sp.userData[key].scale.setScalar(1 + k * 0.25);
       }
       // botones: hover y pulsación
-      for (const b of [...this.studioButtons, this.btnFinish, this.btnStart, this.resPlay, this.resBack, this.resNew, this.resRename, ...this.genreButtons, ...this.nameKeys]) {
+      for (const b of [...this.studioButtons, this.btnFinish, this.btnStart, this.resPlay, this.resBack, this.resNew, this.resRename, ...this.genreButtons, ...this.nameKeys, ...this.mixerButtons]) {
         if (!b || !b.visible) continue;
         const hov = this.pointers.some(p => p.hover && p.hover.kind === 'button' && p.hover.id === b.userData.id);
         b.userData.hover = THREE.MathUtils.lerp(b.userData.hover, hov ? 1 : 0, 1 - Math.pow(0.0001, dt));
