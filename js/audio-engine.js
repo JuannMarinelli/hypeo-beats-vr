@@ -4,6 +4,7 @@
     constructor() {
       this.ctx = null;
       this.cache = new Map();
+      this.samples = new Map();
       this.tracks = new Map();
       this.channels = HY.CHARACTERS.map(() => ({ volume: 1, muted: false }));
       this.playing = false;
@@ -16,8 +17,13 @@
       this.clear();
       this.cache.clear();
       this.genre = genre;
-      this.beat = 60 / genre.bpm;
-      this.bar = this.beat * (genre.beatsPerBar || HY.MUSIC.beatsPerBar);
+      this.applyTempo(genre.bpm);
+    }
+
+    applyTempo(bpm) {
+      this.bpm = bpm;
+      this.beat = 60 / bpm;
+      this.bar = this.beat * (this.genre.beatsPerBar || HY.MUSIC.beatsPerBar);
       this.loop = this.bar * HY.MUSIC.bars;
     }
 
@@ -55,10 +61,28 @@
       return Math.max(0, this.ctx.currentTime - this.t0) % this.loop;
     }
 
-    bufferFor(id, player) {
-      const key = id + '/' + player;
+    async loadSamples(genre) {
+      const files = Object.values(genre.instruments)
+        .flatMap(instrument => instrument.samples || [])
+        .filter(({ url }) => !this.samples.has(url));
+      const decoded = await Promise.all(files.map(async ({ url }) => {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('No se pudo cargar ' + url + ' (' + response.status + ')');
+        return [url, await this.ctx.decodeAudioData(await response.arrayBuffer())];
+      }));
+      for (const [url, buffer] of decoded) this.samples.set(url, buffer);
+    }
+
+    bufferFor(id, player, bpm = this.bpm) {
+      const sample = this.genre.instruments[id]?.samples?.[player];
+      if (sample) {
+        const buffer = this.samples.get(sample.url);
+        if (!buffer) throw new Error('Falta cargar ' + sample.url);
+        return buffer;
+      }
+      const key = id + '/' + player + '/' + bpm;
       if (this.cache.has(key)) return this.cache.get(key);
-      const buffer = HY.renderTrack(this.ctx, this.genre, id, player);
+      const buffer = HY.renderTrack(this.ctx, this.genre, id, player, bpm);
       if (this.cache.size >= 14) this.cache.delete(this.cache.keys().next().value);
       this.cache.set(key, buffer);
       return buffer;
@@ -129,8 +153,23 @@
         this.tracks.delete(id);
         return;
       }
-      this.bufferFor(id, player);
       const track = { player, source: null };
+      const bpm = this.genre.instruments[id]?.samples?.[player]?.bpm ?? this.bpm;
+      this.bufferFor(id, player, bpm);
+      if (bpm !== this.bpm) {
+        // Prepará los buffers al tempo nuevo mientras todavía suena la mezcla anterior.
+        for (const [otherId, other] of this.tracks) {
+          if (otherId !== id) this.bufferFor(otherId, other.player, bpm);
+        }
+        const wasPlaying = this.playing;
+        const beatPosition = this.position / this.beat;
+        this.pause();
+        this.applyTempo(bpm);
+        this.pausedAt = beatPosition * this.beat % this.loop;
+        this.tracks.set(id, track);
+        if (wasPlaying) this.play();
+        return;
+      }
       this.tracks.set(id, track);
       if (!this.playing) return;
       const when = this.nextBeatTime();
@@ -152,6 +191,7 @@
       this.pause();
       this.tracks.clear();
       this.pausedAt = 0;
+      if (this.genre) this.applyTempo(this.genre.bpm);
       this.channels.forEach((_, player) => this.setChannel(player, 1, false));
     }
 

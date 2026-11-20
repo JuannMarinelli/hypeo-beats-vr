@@ -43,8 +43,8 @@
 
   // Los IDs de pista son estables. El timbre y el orden en la plataforma dependen del género.
   const palettes = {
-    reggaeton: [['Kick', 'kick'], ['Bajo sub', 'sub'], ['Keys', 'pluck'], ['Vocal chops', 'chop'],
-      ['Caja dembow', 'clap'], ['Guitarra mute', 'muted'], ['Hi-hats', 'hat'], ['Sinte lead', 'lead'], ['Pad', 'pad']],
+    reggaeton: [['Batería', 'drumkit'], ['Bajo sub', 'sub'], ['Keys', 'pluck'], ['Vocal chops', 'chop'],
+      null, ['Guitarra mute', 'muted'], ['Hi-hats', 'hat'], ['Sinte lead', 'lead'], ['Pad', 'pad']],
     trap: [['Kick trap', 'kick'], ['808', '808'], ['Campanas', 'bell'], ['Vocal chops', 'chop'],
       ['Clap', 'clap'], ['Guitarra', 'strings'], ['Hi-hat rolls', 'hat'], ['Metales', 'trumpet'], ['Pad oscuro', 'pad']],
     rnb: [['Drum machine', 'kit'], ['Bajo redondo', 'electric'], ['Rhodes', 'rhodes'], ['Armonías', 'harmony'],
@@ -69,6 +69,7 @@
 
   const propGroups = {
     beats: ['kick', 'kit', 'jazzkit'],
+    drumkit: ['drumkit'],
     bass: ['sub', '808', 'short808', 'electric', 'glide', 'upright'],
     melody: ['rhodes', 'piano', 'organ', 'pluck'],
     vocals: ['chop', 'harmony', 'scat', 'whistle'],
@@ -84,7 +85,7 @@
 
   // Izquierda, centro y derecha al abrir el estudio.
   const featured = {
-    reggaeton: ['bass', 'beats', 'fx'],
+    reggaeton: ['bass', 'beats', 'melody'],
     trap: ['percussion', 'bass', 'melody'],
     rnb: ['guitar', 'melody', 'vocals'],
     detroit: ['fx', 'melody', 'bass'],
@@ -97,14 +98,27 @@
     jazz: ['bass', 'brass', 'beats']
   };
 
+  // De izquierda a derecha en el escenario.
+  const reggaetonDrumLoops = [
+    ['Moscow Mule', 'moscow-mule', 100],
+    ['Perro Negro', 'perro-negro', 96],
+    ['VeLDÁ', 'velda', 91],
+    ['La Noche de Anoche', 'la-noche-de-anoche', 82],
+    ['Lo Siento BB', 'lo-siento-bb', 85]
+  ].map(([title, file, bpm]) => ({ title, bpm, url: 'assets/audio/reggaeton/' + file + '.wav?bpm=' + bpm }));
+
   for (const genre of HY.GENRES) {
+    genre.instruments = {};
+    HY.INSTRUMENTS.forEach((slot, i) => {
+      const sound = palettes[genre.id][i];
+      if (!sound) return;
+      const [label, timbre] = sound;
+      genre.instruments[slot.id] = { ...slot, label, timbre, shape: propByTimbre[timbre] || 'percussion' };
+    });
+    if (genre.id === 'reggaeton') genre.instruments.beats.samples = reggaetonDrumLoops;
     const [left, center, right] = featured[genre.id];
     const featuredIds = new Set([left, center, right]);
-    genre.carouselOrder = [center, right, ...HY.INSTRUMENTS.map(slot => slot.id).filter(id => !featuredIds.has(id)), left];
-    genre.instruments = Object.fromEntries(HY.INSTRUMENTS.map((slot, i) => {
-      const [label, timbre] = palettes[genre.id][i];
-      return [slot.id, { ...slot, label, timbre, shape: propByTimbre[timbre] || 'percussion' }];
-    }));
+    genre.carouselOrder = [center, right, ...Object.keys(genre.instruments).filter(id => !featuredIds.has(id)), left];
   }
 
   // Las cinco interpretaciones conservan el pulso del género y cambian dónde caen los acentos.
@@ -267,10 +281,10 @@
   const gains = { bass: .48, melody: .29, guitar: .38, vocals: .6, brass: .27, synth: .19, fx: .24 };
   const panning = { bass: 0, melody: -.22, guitar: -.35, vocals: .12, brass: .27, synth: .15 };
 
-  HY.renderTrack = (ctx, genre, id, player) => {
+  HY.renderTrack = (ctx, genre, id, player, bpm = genre.bpm) => {
     const timbre = genre.instruments[id].timbre;
     const rate = 24000;
-    const beat = 60 / genre.bpm;
+    const beat = 60 / bpm;
     const step = beat / 4;
     const stepsPerBar = (genre.beatsPerBar || HY.MUSIC.beatsPerBar) * 4;
     const length = Math.round(rate * step * stepsPerBar * HY.MUSIC.bars);

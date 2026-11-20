@@ -168,6 +168,7 @@
       mark.rotation.z = Math.PI / 2;
       this.carouselRotor = new THREE.Group();
       this.carouselRotor.add(tray, rim);
+      this.carouselTicks = [];
       const tickGeometry = new THREE.BoxGeometry(.018, .006, .12);
       const tickMaterial = B.neon('#7145b4', .95);
       INSTRUMENTS.forEach((_, i) => {
@@ -176,6 +177,7 @@
         tick.position.set(Math.sin(angle) * .48, lift + .008, Math.cos(angle) * .48);
         tick.rotation.y = angle;
         this.carouselRotor.add(tick);
+        this.carouselTicks.push(tick);
       });
       this.carousel.add(this.carouselRotor, mark);
       root.add(this.carousel);
@@ -218,14 +220,14 @@
         }
       });
       this.leftText.position.z = 0.05; this.leftScreen.add(this.leftText);
-      this.rightText = B.textPlane(sw - 0.12, sh - 0.12, 1024, (ctx, w, h, list, state, genre) => {
+      this.rightText = B.textPlane(sw - 0.12, sh - 0.12, 1024, (ctx, w, h, list, state, genre, bpm) => {
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         B.glowText(ctx, genre?.label || 'Tu mezcla', w * 0.08, h * 0.24, B.font(600, 72), '#d9c8ff', '#a64dff', 10);
         ctx.font = B.font(600, 38);
         ctx.fillStyle = '#9d8cc4';
         ctx.textAlign = 'right';
         const meter = genre?.beatsPerBar ? '  ·  ' + genre.beatsPerBar + '/4' : '';
-        ctx.fillText(genre ? genre.bpm + ' BPM' + meter : state || 'vacía', w * 0.92, h * 0.24);
+        ctx.fillText(genre ? bpm + ' BPM' + meter : state || 'vacía', w * 0.92, h * 0.24);
         ctx.textAlign = 'left';
         if (list && list.length) {
           let x = w * 0.08, y = h * .75;
@@ -283,7 +285,8 @@
       this.btnRotateLeft = mk('rotate-left', .31, .17, navigation('‹'), [-1.07, 1.18]);
       this.btnRotateRight = mk('rotate-right', .31, .17, navigation('›'), [1.07, 1.18]);
       this.btnGenres = mk('genres', .52, .16, navigation('GÉNEROS'), [-.81, z - .08]);
-      this.btnMixer = mk('mixer', .52, .16, navigation('MEZCLADOR'), [.78, z + .15]);
+      this.btnMixer = mk('mixer', .52, .14, navigation('MEZCLADOR'), [0, z + .20]);
+      this.btnMixer.position.y = top + .064;
       this.studioButtons = [this.btnReset, this.btnPlay, this.btnRotateLeft, this.btnRotateRight, this.btnGenres, this.btnMixer];
       this.btnFinish.rotation.y = -0.28;
       this.btnFinish.visible = false; this.btnFinish.scale.setScalar(0.001); this.btnFinish.userData.base = 0.78;
@@ -299,7 +302,7 @@
         const depth = z + Math.cos(angle) * radius;
         base.group.position.set(x, L.consoleTop + lift, depth);
         base.home.set(x, L.consoleTop + lift + .092, depth);
-        base.front = Math.cos(angle) >= .70;
+        base.front = base.index >= 0 && Math.cos(angle) >= .70;
         base.group.visible = visible && base.front;
         if (!base.prop) continue;
         if (base.state === 'home') base.prop.position.copy(base.home);
@@ -332,7 +335,7 @@
       this.leftText.userData.canvas.redraw(main, st);
       const list = INSTRUMENTS.filter(c => this.S.assigned[c.id]).map(c => this.instrument(c.id));
       const state = !list.length ? 'vacía' : this.engine.playing ? 'sonando' : 'en pausa';
-      this.rightText.userData.canvas.redraw(list, state, this.S.genre);
+      this.rightText.userData.canvas.redraw(list, state, this.S.genre, this.engine.bpm);
       this.btnPlay.userData.label.userData.canvas.redraw(this.engine.playing ? 'PAUSE' : 'PLAY', this.engine.playing ? 'pause' : 'play');
       if (this.resPlay) this.resPlay.userData.label.userData.canvas.redraw(this.engine.playing ? 'PAUSE' : 'PLAY', this.engine.playing ? 'pause' : 'play');
     },
@@ -499,10 +502,10 @@
       });
       title.position.set(0, 0.72, 0.07);
       panel.add(title);
-      this.genreHint = B.textPlane(2.58, .16, 1024, (ctx, w, h) => {
+      this.genreHint = B.textPlane(2.58, .16, 1024, (ctx, w, h, message) => {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        B.glowText(ctx, 'Cambiar de género inicia una mezcla nueva', w / 2, h / 2,
+        B.glowText(ctx, message || 'Cambiar de género inicia una mezcla nueva', w / 2, h / 2,
           B.font(600, 38), '#e3ceff', null);
       });
       this.genreHint.position.set(0, -.79, .07);
@@ -747,6 +750,7 @@
       this.S.phase = p;
       this.welcome.visible = p === 'welcome';
       this.genreMenu.visible = p === 'genres';
+      this.genreHint.userData.canvas.redraw();
       this.genreHint.visible = this.engine.activeCount() > 0;
       this.studio.visible = p === 'studio' || p === 'result' || p === 'naming' || p === 'mixer';
       this.mixerPanel.visible = p === 'mixer';
@@ -766,6 +770,17 @@
       this._lock = true;
       this.engine.unlock();
       try {
+        if (this.S.genre !== genre && Object.values(genre.instruments).some(instrument => instrument.samples)) {
+          this.genreHint.userData.canvas.redraw('Cargando los loops de batería…');
+          this.genreHint.visible = true;
+          try {
+            await this.engine.loadSamples(genre);
+          } catch (error) {
+            console.warn('[HYPEO] No se pudieron cargar los drumloops', error);
+            this.genreHint.userData.canvas.redraw('No se cargó la batería. Probá de nuevo.');
+            return;
+          }
+        }
         await this.fadeTo(1, 0.3);
         if (this.S.genre !== genre) {
           this.reset(true);
@@ -775,6 +790,15 @@
           if (this.carouselMotion) this.carouselMotion.dead = true;
           this.carouselMotion = null;
           this.carouselAngle = this.carouselTarget = 0;
+          const slots = genre.carouselOrder.length;
+          this.carouselStep = 2 * Math.PI / slots;
+          this.carouselTicks.forEach((tick, index) => {
+            const angle = index * this.carouselStep;
+            tick.position.x = Math.sin(angle) * .48;
+            tick.position.z = Math.cos(angle) * .48;
+            tick.rotation.y = angle;
+            tick.visible = index < slots;
+          });
           for (const [id, base] of Object.entries(this.bases)) {
             if (base.flight) base.flight.dead = true;
             base.state = 'home';
@@ -782,6 +806,7 @@
             this.S.busy[id] = false;
             base.index = genre.carouselOrder.indexOf(id);
             const instrument = genre.instruments[id];
+            if (!instrument) continue;
             this.setPropModel(base, instrument.shape, instrument);
             base.label.userData.canvas.redraw(instrument.label.toUpperCase());
           }
@@ -1012,7 +1037,7 @@
 
     assign(id, from, charId) {
       const S = this.S, base = this.bases[id], ch = this.chars[charId];
-      if (S.phase !== 'studio' || !base || !ch || S.assigned[id] || S.busy[id]) return;
+      if (S.phase !== 'studio' || !S.genre.instruments[id] || !base || !ch || S.assigned[id] || S.busy[id]) return;
       const wasEmpty = this.engine.activeCount() === 0;
       if (ch.instrument) this.returnInstrument(ch.instrument);
       S.busy[id] = true;
@@ -1037,8 +1062,12 @@
       }, ease.inOut);
       this.updateAssignmentLights(base, ch, this.instrument(id));
       this.updateFinish();
-      this.say(this.engine.playing ? `${this.instrument(id).label} se sumó a la mezcla.`
-        : `${this.instrument(id).label} lista. Tocá PLAY para escuchar.`, '#c9f7c0', 2600);
+      const instrument = this.instrument(id);
+      const sound = instrument.samples?.[ch.index]?.title || instrument.label;
+      const sample = instrument.samples?.[ch.index];
+      this.say(sample ? `${sound} · ${sample.bpm} BPM`
+        : this.engine.playing ? `${sound} se sumó a la mezcla.`
+        : `${sound} listo. Tocá PLAY para escuchar.`, '#c9f7c0', 2600);
     },
 
     instrumentPosition(ch) {

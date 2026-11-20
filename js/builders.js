@@ -293,6 +293,25 @@
       for (const x of [-.015, -.005, .005, .015]) box(.002, .386, .003, ivory, x, .117, .067);
       g.rotation.z = -.68;
       g.scale.setScalar(.76);
+    } else if (cat.id === 'drumkit') {
+      // Bombo al frente, dos toms arriba, caja y platillos a los costados.
+      cylinder(.113, .113, .125, body, 0, .116, .042).rotation.x = Math.PI / 2;
+      cylinder(.112, .112, .011, ivory, 0, .116, .108).rotation.x = Math.PI / 2;
+      cylinder(.046, .046, .005, dark, 0, .105, .116).rotation.x = Math.PI / 2;
+      for (const [x, y, z, radius, height] of [
+        [-.055, .25, -.038, .048, .07], [.055, .239, -.049, .055, .085],
+        [-.135, .153, .02, .052, .043], [.127, .134, -.034, .06, .11]
+      ]) {
+        cylinder(radius, radius, height, body, x, y, z);
+        cylinder(radius, radius, .009, ivory, x, y + height / 2, z);
+        cylinder(.007, .009, y - height / 2, dark, x, (y - height / 2) / 2, z);
+      }
+      const metal = B.mat('#f3c466', { roughness: .29, metalness: .54 });
+      for (const [x, y, z, radius] of [[-.155, .297, -.037, .067], [.151, .322, -.082, .073]]) {
+        cylinder(.007, .01, y, dark, x, y / 2, z);
+        cylinder(radius, radius * 1.02, .009, metal, x, y, z).rotation.z = x < 0 ? -.12 : .17;
+        cylinder(.019, .029, .012, metal, x, y + .006, z);
+      }
     } else if (cat.id === 'percussion') {
       for (const [x, y, radius] of [[-.09, .13, .09], [.09, .105, .077]]) {
         cylinder(radius * .96, radius * .62, y * 1.9, body, x, y, 0);

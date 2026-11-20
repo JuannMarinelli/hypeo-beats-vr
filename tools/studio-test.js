@@ -108,6 +108,9 @@ async function main() {
     await wait(bars => __hypeo._lv.some(level => level > 0.1) &&
       __hypeo.bars.some((bar, i) => Math.abs(bar.scale.y - bars[i]) > 0.015), bars);
 
+    const mixer = await point('button', 'mixer');
+    const play = await point('button', 'play');
+    assert.ok(Math.abs(mixer.x - width / 2) < 1 && mixer.y > play.y && mixer.y < height);
     const blueInstrument = await page.evaluate(() => __hypeo.chars.vocals.instrument);
     await click('button', 'mixer');
     await phase('mixer');
@@ -195,7 +198,7 @@ async function main() {
     await wait(() => Object.values(__hypeo.bases).every(base => base.state === 'home' && base.prop.visible === base.front));
 
     const expectedGenres = [
-      ['reggaeton', 98, 4, ['Bajo sub', 'Kick', 'Caja dembow']],
+      ['reggaeton', 98, 4, ['Bajo sub', 'Batería', 'Keys']],
       ['trap', 150, 4, ['Hi-hat rolls', '808', 'Campanas']],
       ['rnb', 96, 4, ['Guitarra limpia', 'Rhodes', 'Armonías']],
       ['detroit', 190, 4, ['Caja seca', 'Piano Detroit', '808 corto']],
@@ -225,21 +228,61 @@ async function main() {
 
       const playable = await page.evaluate(() => {
         const engine = __hypeo.engine;
-        return Object.keys(__hypeo.bases).every(id => {
+        return Object.keys(__hypeo.S.genre.instruments).every(id => {
           const buffer = engine.bufferFor(id, 2);
-          return Math.abs(buffer.duration - engine.loop) <= 1 / buffer.sampleRate &&
+          const bpm = __hypeo.instrument(id).samples?.[2]?.bpm ?? engine.bpm;
+          return Math.abs(buffer.duration - engine.loop * engine.bpm / bpm) <= 1 / buffer.sampleRate &&
             buffer.getChannelData(0).some(sample => Math.abs(sample) > .001);
         });
       });
       assert.equal(playable, true, genre);
+
+      if (genre === 'reggaeton') {
+        const loops = ['moscow-mule', 'perro-negro', 'velda', 'la-noche-de-anoche', 'lo-siento-bb'];
+        assert.deepEqual(await page.evaluate(() => [
+          __hypeo.S.genre.carouselOrder.length,
+          __hypeo.bases.fx.group.visible,
+          __hypeo.instrument('beats').shape
+        ]), [8, false, 'drumkit']);
+
+        const tempos = [100, 96, 91, 82, 85];
+        await drag('bass', 'fx');
+        await count(1);
+        for (const [player, character] of characters.entries()) {
+          if (character === 'fx') {
+            await click('char', 'fx');
+            await count(0);
+          }
+          await drag('beats', character);
+          await count(character === 'fx' ? 1 : 2);
+          const bpm = tempos[player];
+          const file = 'assets/audio/reggaeton/' + loops[player] + '.wav?bpm=' + bpm;
+          assert.equal(await page.evaluate(({ player, file, bpm }) => {
+            const { engine } = __hypeo;
+            const track = engine.tracks.get('beats');
+            const bass = engine.tracks.get('bass');
+            const buffer = engine.samples.get(file);
+            const inPhase = !bass || (bass.when === track.when &&
+              Math.abs(bass.source.buffer.duration - engine.loop) <= 1 / bass.source.buffer.sampleRate);
+            return engine.bpm === bpm && inPhase && track.player === player && !!buffer && track.source?.buffer === buffer &&
+              Math.abs(buffer.duration - engine.loop) <= 1 / buffer.sampleRate &&
+              buffer.getChannelData(0).some(sample => Math.abs(sample) > .05);
+          }, { player, file, bpm }), true, loops[player]);
+          await click('char', character);
+          await count(character === 'fx' ? 0 : 1);
+        }
+      } else {
+        assert.equal(await page.evaluate(() => __hypeo.S.genre.carouselOrder.length), 9);
+      }
     }
 
     for (const asset of [...characters.map(id => `${id}.glb`), 'props.glb', 'logo.glb',
-      'Poppins-800.woff2', 'Poppins-600.woff2', 'PermanentMarker.woff2']) {
+      'Poppins-800.woff2', 'Poppins-600.woff2', 'PermanentMarker.woff2',
+      'moscow-mule.wav', 'perro-negro.wav', 'velda.wav', 'la-noche-de-anoche.wav', 'lo-siento-bb.wav']) {
       assert.ok(assets.has(asset), `Missing asset response: ${asset}`);
     }
     assert.deepEqual(errors, []);
-    console.log('Passed: nine carousel slots, free assignment, genre switching, independent stems, playback and custom titles.');
+    console.log('Passed: genre switching, carousel, five synchronized Reggaeton tempos, per-character volume and mute, independent stems, playback and custom titles.');
   } finally {
     await browser.close();
   }
