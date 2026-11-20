@@ -55,7 +55,6 @@
   ];
 
   const pads = [[0, 15.9], [.4, 15.4], [1, 14.8], [0, 15.85], [0, 15.8]];
-  const chops = [[6, 13], [2, 10], [3, 11], [7, 14], [5, 12]];
 
   function drum(part, step, length, velocity) {
     return { part, step, length, velocity };
@@ -88,11 +87,7 @@
       const notes = chord.map((note, index) => note + (index === 3 && player >= 3 ? 12 : 0));
       return [{ step, length, pitches: notes, velocity: [85, 78, 91, 83, 88][player] }];
     }
-    if (id === 'brass') {
-      return stabs[player].map(([step, length, velocity]) =>
-        ({ step, length, pitches: chord.map(note => note + (player % 2 ? 12 : 0)), velocity }));
-    }
-    return chops[player].map((step, index) =>
-      ({ step, length: .95, pitches: [chord[index === 0 ? 2 : 1] + 12], velocity: index === 0 ? 97 : 81 }));
+    return stabs[player].map(([step, length, velocity]) =>
+      ({ step, length, pitches: chord.map(note => note + (player % 2 ? 12 : 0)), velocity }));
   };
 })();

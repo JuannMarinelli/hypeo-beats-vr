@@ -36,21 +36,21 @@
 
   // Los IDs de pista son estables. El timbre y el orden en la plataforma dependen del género.
   const palettes = {
-    reggaeton: [['Batería', 'drumkit'], ['Bajo sub', 'sub'], ['Keys', 'pluck'], ['Vocal chops', 'chop'],
+    reggaeton: [['Batería', 'drumkit'], ['Bajo sub', 'sub'], ['Keys', 'pluck'], null,
       ['Sinte rítmico', 'rhythm-synth'], ['Guitarra mute', 'muted'], ['Hi-hats', 'hat'], ['Lead', 'lead'], ['Pad', 'pad']],
-    trap: [['Kick trap', 'kick'], ['808', '808'], ['Keys oscuras', 'trap-keys'], ['Vocal chops', 'chop'],
+    trap: [['Kick trap', 'kick'], ['808', '808'], ['Keys oscuras', 'trap-keys'], null,
       ['Clap / caja', 'clap'], ['Guitarra', 'trap-guitar'], ['Hi-hat rolls', 'hat'], ['Sinte oscuro', 'trap-synth'], ['Pad oscuro', 'trap-pad']],
     rnb: [['Drum machine', 'kit'], ['Bajo redondo', 'electric'], ['Rhodes', 'rhodes'], ['Armonías', 'harmony'],
       ['Snap', 'snap'], ['Guitarra limpia', 'strings'], ['Shaker', 'shaker'], ['Lead retro', 'lead'], ['Pad analógico', 'pad']],
-    detroit: [['Kick Detroit', 'kick'], ['808 corto', 'short808'], ['Piano Detroit', 'piano'], ['Ad-libs', 'chop'],
+    detroit: [['Kick Detroit', 'kick'], ['808 corto', 'short808'], ['Piano Detroit', 'piano'], null,
       ['Caja seca', 'rim'], ['Cuerdas', 'bow'], ['Hi-hats', 'hat'], ['Stab de metales', 'trumpet'], ['Sinte digital', 'pluck']],
-    dembow: [['Kick dembow', 'kick'], ['Bajo rebotado', 'sub'], ['Teclado tropical', 'organ'], ['Coro picado', 'chop'],
+    dembow: [['Kick dembow', 'kick'], ['Bajo rebotado', 'sub'], ['Teclado tropical', 'organ'], null,
       ['Caja dembow', 'rim'], ['Campana', 'cowbell'], ['Güira', 'guira'], ['Metales', 'trumpet'], ['Sinte corto', 'pluck']],
     drill: [['Kick drill', 'kick'], ['808 con glide', 'glide'], ['Piano oscuro', 'piano'], ['Coro oscuro', 'harmony'],
       ['Caja drill', 'rim'], ['Cuerdas tensas', 'bow'], ['Hi-hat rolls', 'hat'], ['Campanas', 'bell'], ['Pad sombrío', 'pad']],
-    rkt: [['Bombo RKT', 'kick'], ['Bajo saturado', 'short808'], ['Teclas RKT', 'organ'], ['Voces picadas', 'chop'],
+    rkt: [['Bombo RKT', 'kick'], ['Bajo saturado', 'short808'], ['Teclas RKT', 'organ'], null,
       ['Caja RKT', 'clap'], ['Cencerro', 'cowbell'], ['Güiro', 'guira'], ['Sinte de bronce', 'trumpet'], ['Sinte filoso', 'lead']],
-    house: [['Batería House', 'drumkit'], ['Bajo offbeat', 'sub'], ['Keys de apoyo', 'house-keys'], ['Vocal chops', 'chop'],
+    house: [['Batería House', 'drumkit'], ['Bajo offbeat', 'sub'], ['Keys de apoyo', 'house-keys'], null,
       null, null, null, ['Sinte House', 'house-stab'], ['Pad House', 'house-pad']],
     bachata: [['Bongó', 'bongo'], ['Bajo bachata', 'electric'], ['Requinto', 'requinto'], ['Coro suave', 'harmony'],
       ['Golpes de bongó', 'rim'], ['Guitarra segunda', 'muted'], ['Güira', 'guira'], ['Teclas suaves', 'rhodes'], ['Cuerdas cálidas', 'bow']],
@@ -65,7 +65,7 @@
     drumkit: ['drumkit'],
     bass: ['sub', '808', 'short808', 'electric', 'glide', 'upright'],
     melody: ['rhodes', 'piano', 'organ', 'pluck', 'trap-keys', 'house-keys'],
-    vocals: ['chop', 'harmony', 'scat', 'whistle'],
+    vocals: ['harmony', 'scat', 'whistle'],
     fx: ['riser'],
     guitar: ['requinto', 'strings', 'muted', 'bow', 'trap-guitar'],
     brass: ['sax'],
@@ -135,9 +135,9 @@
   function voice(id, pitch, duration, genre, articulation) {
     const f = hz(pitch);
     const dry = 1 - genre.color;
-    if (['chop', 'harmony', 'scat'].includes(id)) {
+    if (id === 'harmony' || id === 'scat') {
       const [a, b] = vowelFormants[articulation % vowelFormants.length];
-      const formantScale = id === 'scat' ? 1.06 : id === 'harmony' ? .85 : 1.13;
+      const formantScale = id === 'scat' ? 1.06 : .85;
       const harmonics = Array.from({ length: 18 }, (_, i) => {
         const k = i + 1;
         return (.55 / (1 + ((k * f - a * formantScale) / 175) ** 2) +
@@ -318,13 +318,13 @@
     reggaeton: { events: HY.reggaetonEvents, levels: { percussion: .46 }, drumPan: { percussion: .31 } },
     trap: {
       events: HY.trapEvents,
-      levels: { beats: .76, fx: .66, percussion: .48, synth: .067, guitar: .27, brass: .24, vocals: .4 },
+      levels: { beats: .76, fx: .66, percussion: .48, synth: .067, guitar: .27, brass: .24 },
       drumPan: { beats: 0, fx: 0, percussion: .30 },
       echo: { melody: [6, .17], brass: [4, .17], guitar: [3, .23] }
     },
     house: {
       events: HY.houseEvents,
-      levels: { beats: .53, bass: .43, melody: .19, vocals: .43, brass: .28, synth: .13 },
+      levels: { beats: .53, bass: .43, melody: .19, brass: .28, synth: .13 },
       drumPan: { beats: 0 },
       echo: { brass: [3, .16] }
     }
@@ -440,7 +440,7 @@
         const tone = (i + bar) % chord.length;
         const next = times[i + 1] ?? stepsPerBar + times[0];
         const needSpace = ['pad', 'bow'].includes(timbre);
-        const maxSteps = needSpace ? 14 : timbre === 'chop' ? 2.4 : timbre === 'riser' ? 9 : 5;
+        const maxSteps = needSpace ? 14 : timbre === 'riser' ? 9 : 5;
         const duration = step * Math.min(maxSteps, (next - s) * (needSpace ? 1 : .9));
         let pitches = [chord[tone] + 12];
         if (id === 'bass') {

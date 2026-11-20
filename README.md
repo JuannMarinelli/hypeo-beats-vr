@@ -29,9 +29,9 @@ Cada instrumento tiene su propio buffer y cinco interpretaciones, una por person
 
 | Género | BPM | Sonidos del estudio |
 | --- | ---: | --- |
-| Reggaeton | 82, 85, 91, 96, 100 (98 inicial) | Batería, bajo sub, keys, sinte rítmico, lead, pad, guitarra, hi-hats y vocal chops |
+| Reggaeton | 82, 85, 91, 96, 100 (98 inicial) | Batería, bajo sub, keys, sinte rítmico, lead, pad, guitarra y hi-hats |
 | Trap | 145 | 808, keys oscuras, sinte, guitarra, clap / caja, hi-hat rolls y pad oscuro |
-| House | 126 | Batería, bajo al contratiempo, keys de apoyo, sinte, pad y vocal chops |
+| House | 126 | Batería, bajo al contratiempo, keys de apoyo, sinte y pad |
 | Bachata | 128 | Requinto, guitarra segunda, bongó, güira y bajo |
 
 ### Batería de Reggaeton
@@ -40,7 +40,7 @@ Al asignar la batería de izquierda a derecha en el escenario suenan Moscow Mule
 
 ### Arreglo de Reggaeton
 
-Las partes de cuatro compases comparten **C–Am–Em–D (VI–iv–i–VII en mi menor)**. El pad conserva las inversiones de la pista de acordes del MIDI de referencia. Las keys y el sinte rítmico acentúan el dembow, mientras que la guitarra entra a contratiempo, el bajo alterna fundamentales y respuestas, y el lead y los vocal chops tienen frases propias. Cada personaje interpreta una variante fija. [The Sonic Secrets](https://thesonicsecrets.com/songwriting/latin-chord-progressions/) · [Native Instruments](https://www.native-instruments.com/blogs/blog/reggaeton) · [Splice](https://splice.com/blog/how-to-make-basslines/)
+Las partes de cuatro compases comparten **C–Am–Em–D (VI–iv–i–VII en mi menor)**. El pad conserva las inversiones de la pista de acordes del MIDI de referencia. Las keys y el sinte rítmico acentúan el dembow, mientras que la guitarra entra a contratiempo, el bajo alterna fundamentales y respuestas, y el lead tiene una frase propia. Cada personaje interpreta una variante fija. [The Sonic Secrets](https://thesonicsecrets.com/songwriting/latin-chord-progressions/) · [Native Instruments](https://www.native-instruments.com/blogs/blog/reggaeton) · [Splice](https://splice.com/blog/how-to-make-basslines/)
 
 ### Arreglo de Trap
 

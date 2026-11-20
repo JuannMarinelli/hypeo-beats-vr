@@ -196,6 +196,8 @@ async function main() {
     await count(0);
     await wait(() => Object.values(__hypeo.bases).every(base => base.state === 'home' && base.prop.visible === base.front));
 
+    assert.equal(await page.evaluate(() => HY.GENRES.every(genre =>
+      Object.values(genre.instruments).every(instrument => instrument.timbre !== 'chop'))), true);
     const expectedGenres = [
       ['reggaeton', 98, 4, ['Bajo sub', 'Batería', 'Keys']],
       ['trap', 145, 4, ['Hi-hat rolls', '808', 'Keys oscuras']],
@@ -241,8 +243,8 @@ async function main() {
           };
         });
         assert.equal(house.bars, 8);
-        assert.equal(house.slots.length, 6);
-        for (const id of ['fx', 'percussion', 'guitar']) assert.ok(!house.slots.includes(id));
+        assert.equal(house.slots.length, 5);
+        for (const id of ['fx', 'percussion', 'guitar', 'vocals']) assert.ok(!house.slots.includes(id));
         assert.equal(new Set(house.kits.map(kit => JSON.stringify(kit))).size, 5);
         for (const kit of house.kits) {
           assert.deepEqual(kit.filter(event => event.part === 'house-kick').map(event => event.step), [0, 4, 8, 12]);
@@ -265,6 +267,7 @@ async function main() {
       }
 
       if (genre === 'trap') {
+        assert.equal(await page.evaluate(() => __hypeo.S.genre.carouselOrder.length), 8);
         const patterns = await page.evaluate(() => HY.CHARACTERS.map((_, player) => ({
           bars: Array.from({ length: 4 }, (_, bar) => ({
             hats: HY.trapEvents('percussion', player, bar).map(event => event.step),
@@ -296,7 +299,7 @@ async function main() {
           __hypeo.instrument('fx').label,
           __hypeo.instrument('brass').label,
           __hypeo.instrument('beats').shape
-        ]), [9, 'Sinte rítmico', 'Lead', 'drumkit']);
+        ]), [8, 'Sinte rítmico', 'Lead', 'drumkit']);
 
         const voicings = await page.evaluate(() => Array.from({ length: 4 }, (_, bar) =>
           HY.reggaetonEvents('synth', 0, bar)[0].pitches));
@@ -328,7 +331,7 @@ async function main() {
           await click('char', character);
           await count(character === 'fx' ? 0 : 1);
         }
-      } else if (genre !== 'house') {
+      } else if (genre === 'bachata') {
         assert.equal(await page.evaluate(() => __hypeo.S.genre.carouselOrder.length), 9);
       }
     }

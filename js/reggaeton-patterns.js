@@ -20,7 +20,7 @@
       [[0, 2.4, 0, 110], [3, 1.55, 0, 88], [6, 1.3, 12, 84], [8, 2.4, 0, 107], [11, 1.6, 0, 89], [14, 1.45, 7, 84]],
       [[0, 2.9, 0, 108], [4, 1.5, 0, 93], [6, 1.35, 0, 88], [8, 3.1, 0, 105], [12, 1.3, 0, 92], [15, .68, 0, 82]]
     ],
-    // Keys: voicings cerrados, ataques breves y espacio para la frase vocal.
+    // Keys: voicings cerrados, ataques breves y espacio para las otras pistas.
     melody: [
       [[3, 1.65, null, 96], [6, 1.35, null, 101], [11, 1.6, null, 89], [14, 1.25, null, 98]],
       [[2, 1.55, 0, 83], [4, 1.5, 1, 84], [6, 1.45, 2, 100], [10, 1.5, 1, 84], [12, 1.5, 0, 81], [14, 1.45, 2, 96]],
@@ -60,14 +60,6 @@
       [[2, 1.45, 0, 96], [6, 1.15, 1, 100], [8, 1.3, 2, 107], [11, 1.55, 2, 85], [14, 1.5, 3, 92]],
       [[3, 1.6, 0, 100], [5, 1.55, 1, 93], [9, 3.5, 2, 110], [14, 1.5, 3, 94]]
     ],
-    // Chops cortos que contestan al lead y dejan respirar el dembow.
-    vocals: [
-      [[6, 1.1, 0, 99], [11, .93, 1, 91], [14, 1.25, 2, 102]],
-      [[3, .85, 1, 86], [8, 1.2, 0, 104], [12, .88, 1, 90], [15, .85, 2, 98]],
-      [[2, 1.2, 0, 101], [6, 1.1, 1, 92], [10, 1.45, 2, 100]],
-      [[5, 1.4, 0, 101], [7, .79, 1, 86], [11, 1.35, 2, 100]],
-      [[3, .85, 0, 99], [6, 1.23, 1, 94], [11, 1.15, 0, 102], [14, 1.35, 2, 96]]
-    ],
     percussion: [
       [[2, 1, 42, 84], [6, 1.2, 42, 92], [10, 1, 42, 79], [14, 1.6, 46, 96]],
       [[0, .8, 42, 63], [2, 1, 42, 90], [6, 1, 42, 79], [8, .8, 42, 65], [10, 1, 42, 88], [14, 1.6, 46, 96]],
@@ -78,7 +70,6 @@
   };
 
   const lead = [[76, 79, 84, 79], [76, 81, 84, 81], [79, 76, 83, 79], [78, 81, 86, 81]];
-  const chops = [[67, 64, 72], [69, 64, 72], [67, 64, 71], [69, 66, 74]];
 
   HY.reggaetonEvents = (id, player, bar) => {
     const { root, chord } = harmony[bar];
@@ -91,7 +82,6 @@
         case 'guitar': pitches = [chord[note], chord[(note + 1) % 3] + 12]; break;
         case 'synth': pitches = chord.map((pitch, index) => pitch - (note && index >= 3 - note ? 12 : 0)); break;
         case 'brass': pitches = [lead[bar][note] - (player === 2 ? 12 : 0)]; break;
-        case 'vocals': pitches = [chops[bar][note] + (player === 3 ? 12 : 0)]; break;
         case 'percussion': pitches = [note]; break;
       }
       return { step, length, pitches, velocity };
